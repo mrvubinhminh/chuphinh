@@ -8,109 +8,87 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
             background-color: #000; overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             touch-action: manipulation;
         }
-
         .app-container {
             position: relative; width: 100%; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            background: #000;
+            display: flex; justify-content: center; align-items: center; background: #000;
         }
-
         #view-finder {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             overflow: hidden; transition: width 0.3s ease, height 0.3s ease;
             background: #111; width: 100%; height: 100%;
         }
-
         #camera-feed {
             width: 100%; height: 100%; object-fit: cover;
-            position: absolute; top: 0; left: 0;
-            transition: filter 0.3s ease;
+            position: absolute; top: 0; left: 0; transition: filter 0.3s ease;
         }
-
         .overlay-layer {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; z-index: 10; pointer-events: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
         }
-
         .controls-layer {
             position: absolute; top: 0; left: 0; z-index: 20;
             width: 100%; height: 100%; display: flex; flex-direction: column;
             justify-content: space-between; pointer-events: none;
         }
-
         .top-bar, .bottom-bar {
-            pointer-events: auto; padding: 20px;
+            pointer-events: auto; padding: 16px 20px;
             display: flex; justify-content: space-between; align-items: center;
         }
-
-        .top-bar { background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%); }
+        .top-bar { background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%); }
         .bottom-bar {
             background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
             padding-bottom: 40px;
         }
-
         .shutter-btn {
             width: 76px; height: 76px; border-radius: 50%;
             background-color: white; border: 4px solid transparent;
             box-shadow: 0 0 0 4px white inset, 0 0 0 2px rgba(255,255,255,0.5);
-            transition: all 0.1s ease; cursor: pointer;
+            transition: all 0.1s ease; cursor: pointer; flex-shrink: 0;
         }
         .shutter-btn:active { transform: scale(0.9); background-color: #ddd; }
-
         .icon-btn, .text-btn {
-            color: white; background: rgba(0, 0, 0, 0.5);
+            color: white; background: rgba(0,0,0,0.5);
             border-radius: 50%; width: 44px; height: 44px;
             display: flex; justify-content: center; align-items: center;
             backdrop-filter: blur(5px); cursor: pointer;
             transition: background 0.2s; border: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
         }
-        .text-btn { border-radius: 20px; width: auto; padding: 0 16px; font-weight: 600; font-size: 0.9rem; }
-        .icon-btn:hover, .text-btn:hover { background: rgba(0, 0, 0, 0.7); }
+        .text-btn { border-radius: 20px; width: auto; padding: 0 14px; font-weight: 600; font-size: 0.85rem; }
+        .icon-btn:hover, .text-btn:hover { background: rgba(0,0,0,0.7); }
         .btn-active { color: #fbbf24 !important; border-color: #fbbf24 !important; }
 
         /* ── Grids ── */
         .phi-grid, .fibonacci-spiral, .thirds-grid, .diagonal-grid {
             display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0;
         }
-        .phi-grid.active, .fibonacci-spiral.active,
-        .thirds-grid.active, .diagonal-grid.active { display: block; }
-
-        /* Phi grid lines */
-        .phi-line-v1, .phi-line-v2 { position: absolute; top: 0; bottom: 0; width: 1px; background-color: rgba(255, 255, 255, 0.6); box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+        .phi-grid.active, .fibonacci-spiral.active, .thirds-grid.active, .diagonal-grid.active { display: block; }
+        .phi-line-v1, .phi-line-v2 { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.6); }
         .phi-line-v1 { left: 38.2%; } .phi-line-v2 { left: 61.8%; }
-        .phi-line-h1, .phi-line-h2 { position: absolute; left: 0; right: 0; height: 1px; background-color: rgba(255, 255, 255, 0.6); box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+        .phi-line-h1, .phi-line-h2 { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.6); }
         .phi-line-h1 { top: 38.2%; } .phi-line-h2 { top: 61.8%; }
-
         .intersection-point {
-            position: absolute; width: 6px; height: 6px; background-color: #fbbf24; border-radius: 50%;
-            transform: translate(-50%, -50%); box-shadow: 0 0 4px rgba(0,0,0,0.8); z-index: 15;
+            position: absolute; width: 6px; height: 6px; background: #fbbf24; border-radius: 50%;
+            transform: translate(-50%,-50%); box-shadow: 0 0 4px rgba(0,0,0,0.8); z-index: 15;
         }
-        .pt-1 { top: 38.2%; left: 38.2%; } .pt-2 { top: 38.2%; left: 61.8%; }
-        .pt-3 { top: 61.8%; left: 38.2%; } .pt-4 { top: 61.8%; left: 61.8%; }
-
-        /* Fibonacci spiral */
-        .fibonacci-spiral svg { width: 100%; height: 100%; opacity: 0.6; filter: drop-shadow(0px 0px 1px rgba(0,0,0,1)); }
-
-        /* Rule of Thirds grid */
-        .thirds-grid svg { width: 100%; height: 100%; }
-
-        /* Diagonal grid */
-        .diagonal-grid svg { width: 100%; height: 100%; }
+        .pt-1{top:38.2%;left:38.2%;} .pt-2{top:38.2%;left:61.8%;}
+        .pt-3{top:61.8%;left:38.2%;} .pt-4{top:61.8%;left:61.8%;}
+        .fibonacci-spiral svg { width:100%;height:100%;opacity:0.6;filter:drop-shadow(0 0 1px #000); }
+        .thirds-grid svg, .diagonal-grid svg { width:100%;height:100%; }
 
         /* ── Zoom indicator ── */
         #zoom-indicator {
-            position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 155px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); color: #fbbf24; font-weight: 700;
             font-size: 0.85rem; padding: 4px 14px; border-radius: 20px;
-            z-index: 30; pointer-events: none; opacity: 0;
-            transition: opacity 0.3s; backdrop-filter: blur(4px);
+            z-index: 30; pointer-events: none; opacity: 0; transition: opacity 0.3s;
         }
         #zoom-indicator.visible { opacity: 1; }
 
@@ -118,62 +96,143 @@
         #focus-ring {
             position: absolute; width: 70px; height: 70px;
             border: 2px solid #fbbf24; border-radius: 4px;
-            transform: translate(-50%, -50%) scale(1.4);
+            transform: translate(-50%,-50%) scale(1.4);
             z-index: 30; pointer-events: none; display: none;
             box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
             transition: transform 0.2s ease, opacity 0.3s ease;
         }
-        #focus-ring.focusing {
-            display: block;
-            animation: focusPulse 0.35s ease forwards;
-        }
-        #focus-ring.focused {
-            display: block; transform: translate(-50%, -50%) scale(1); opacity: 0.7;
-        }
+        #focus-ring.focusing { display: block; animation: focusPulse 0.35s ease forwards; }
+        #focus-ring.focused  { display: block; transform: translate(-50%,-50%) scale(1); opacity: 0.7; }
         @keyframes focusPulse {
-            0%   { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1);   opacity: 0.85; }
+            0%   { transform: translate(-50%,-50%) scale(1.4); opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(1);   opacity: 0.85; }
         }
 
+        /* ── Liveclock overlay on viewfinder ── */
+        #live-stamp {
+            position: absolute; bottom: 14px; left: 14px;
+            z-index: 25; pointer-events: none;
+            color: #fff; font-size: 0.78rem; font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7);
+            line-height: 1.4; display: none;
+        }
+        #live-stamp.visible { display: block; }
+
+        /* ── Stamp mode picker ── */
+        #stamp-picker {
+            display: none; position: absolute; top: 70px; right: 14px; z-index: 35;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,215,0,0.35); border-radius: 14px;
+            overflow: hidden; pointer-events: auto;
+        }
+        #stamp-picker.open { display: block; }
+        .stamp-option {
+            padding: 11px 20px; color: #fff; font-size: 0.85rem; cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .stamp-option:last-child { border-bottom: none; }
+        .stamp-option:hover { background: rgba(255,215,0,0.15); }
+        .stamp-option.selected { color: #fbbf24; font-weight: 700; }
+
+        /* ── Guidance panel ── */
         .guidance-panel {
-            pointer-events: auto; position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); color: white; padding: 14px 20px;
-            border-radius: 16px; text-align: left; width: 85%; max-width: 400px; font-size: 0.95rem; line-height: 1.5;
-            border: 1px solid rgba(255, 215, 0, 0.3); transition: opacity 0.3s;
+            pointer-events: auto; position: absolute; bottom: 145px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); color: white;
+            padding: 14px 20px; border-radius: 16px; text-align: left;
+            width: 85%; max-width: 400px; font-size: 0.92rem; line-height: 1.5;
+            border: 1px solid rgba(255,215,0,0.3); transition: opacity 0.3s;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
+        /* ── Flash ── */
         .flash-effect {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: white; opacity: 0; z-index: 40; pointer-events: none;
+            position: absolute; top:0;left:0;right:0;bottom:0;
+            background-color: white; opacity:0; z-index:40; pointer-events:none;
         }
-        @keyframes flashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes flashAnim { 0%{opacity:1} 100%{opacity:0} }
 
+        /* ── Depth overlay ── */
         .depth-effect-overlay {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            position: absolute; top:0;left:0;right:0;bottom:0;
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             mask-image: radial-gradient(ellipse at center, transparent 25%, black 70%);
             -webkit-mask-image: radial-gradient(ellipse at center, transparent 25%, black 70%);
-            pointer-events: none; z-index: 5; display: none;
+            pointer-events: none; z-index:5; display:none;
         }
-        .depth-effect-overlay.active { display: block; }
+        .depth-effect-overlay.active { display:block; }
 
+        /* ── Preview modal ── */
         #preview-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; position: fixed; top:0;left:0;width:100%;height:100%;
             background: black; z-index: 50; flex-direction: column;
         }
-        #preview-image { flex: 1; width: 100%; object-fit: contain; }
-
+        #preview-image { flex:1; width:100%; object-fit:contain; }
         #saving-overlay {
-            display: none; position: absolute; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.7); z-index: 100;
+            display: none; position: absolute; top:0;left:0;width:100%;height:100%;
+            background: rgba(0,0,0,0.7); z-index:100;
             justify-content: center; align-items: center; flex-direction: column; color: white;
         }
         .spinner {
-            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
-            border-radius: 50%; border-top-color: #fbbf24; animation: spin 1s ease-in-out infinite;
+            width:40px;height:40px;border:4px solid rgba(255,255,255,0.3);
+            border-radius:50%;border-top-color:#fbbf24;animation:spin 1s ease-in-out infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        /* ── Gallery modal ── */
+        #gallery-modal {
+            display: none; position: fixed; top:0;left:0;width:100%;height:100%;
+            background: rgba(0,0,0,0.97); z-index: 60; flex-direction: column;
+        }
+        #gallery-modal.open { display: flex; }
+        .gallery-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px;
+            background: rgba(0,0,0,0.9); border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        #gallery-grid {
+            flex: 1; overflow-y: auto; padding: 8px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+        }
+        .gallery-item {
+            position: relative; aspect-ratio: 1; cursor: pointer; overflow: hidden; border-radius: 4px;
+            background: #1a1a1a;
+        }
+        .gallery-item img { width:100%;height:100%;object-fit:cover;display:block; transition: opacity 0.2s; }
+        .gallery-item:active img { opacity: 0.7; }
+        .gallery-item .del-btn {
+            position: absolute; top: 4px; right: 4px;
+            background: rgba(0,0,0,0.65); border-radius: 50%; width: 26px; height: 26px;
+            display: flex; justify-content: center; align-items: center;
+            color: #fff; cursor: pointer; border: none; font-size: 14px;
+        }
+        #gallery-lightbox {
+            display: none; position: fixed; top:0;left:0;width:100%;height:100%;
+            background: rgba(0,0,0,0.98); z-index: 70;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #gallery-lightbox.open { display: flex; }
+        #lightbox-img { max-width:100%; max-height: calc(100vh - 100px); object-fit: contain; }
+        .lightbox-toolbar {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 16px; background: rgba(0,0,0,0.8);
+        }
+        .lb-btn {
+            color: white; background: rgba(255,255,255,0.12); border: none;
+            border-radius: 12px; padding: 10px 22px; font-size: 0.85rem;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        .lb-btn.danger { background: rgba(220,38,38,0.3); color: #fca5a5; }
+        #gallery-count {
+            color: rgba(255,255,255,0.5); font-size: 0.75rem; text-align: center; padding: 4px 0 8px;
+        }
+        #empty-gallery {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: rgba(255,255,255,0.3);
+            gap: 12px;
+        }
     </style>
 </head>
 <body>
@@ -183,76 +242,87 @@
         <video id="camera-feed" autoplay playsinline muted></video>
         <div id="depth-overlay" class="depth-effect-overlay"></div>
         <div id="flash-overlay" class="flash-effect"></div>
-
-        <!-- Focus ring -->
         <div id="focus-ring"></div>
-        <!-- Zoom label -->
         <div id="zoom-indicator">1.0×</div>
 
+        <!-- Live timestamp / address overlay -->
+        <div id="live-stamp">
+            <div id="live-time"></div>
+            <div id="live-addr" style="font-size:0.72rem;opacity:0.85;margin-top:1px;max-width:220px;"></div>
+        </div>
+
         <div class="overlay-layer">
-            <!-- Phi Grid -->
             <div id="grid-phi" class="phi-grid active">
                 <div class="phi-line-v1"></div><div class="phi-line-v2"></div>
                 <div class="phi-line-h1"></div><div class="phi-line-h2"></div>
                 <div class="intersection-point pt-1"></div><div class="intersection-point pt-2"></div>
                 <div class="intersection-point pt-3"></div><div class="intersection-point pt-4"></div>
             </div>
-
-            <!-- Fibonacci Spiral -->
             <div id="grid-spiral" class="fibonacci-spiral">
                 <svg viewBox="0 0 1618 1000" preserveAspectRatio="none">
-                    <path d="M 1618 1000 A 1000 1000 0 0 0 618 0 A 618 618 0 0 0 0 618 A 382 382 0 0 0 382 1000 A 236 236 0 0 0 618 764 A 146 146 0 0 0 472 618" fill="none" stroke="#fbbf24" stroke-width="4" />
+                    <path d="M 1618 1000 A 1000 1000 0 0 0 618 0 A 618 618 0 0 0 0 618 A 382 382 0 0 0 382 1000 A 236 236 0 0 0 618 764 A 146 146 0 0 0 472 618" fill="none" stroke="#fbbf24" stroke-width="4"/>
                     <rect x="0" y="0" width="1618" height="1000" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
                 </svg>
             </div>
-
-            <!-- Rule of Thirds (3×3) -->
             <div id="grid-thirds" class="thirds-grid">
                 <svg viewBox="0 0 300 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- vertical lines -->
                     <line x1="100" y1="0" x2="100" y2="300" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
                     <line x1="200" y1="0" x2="200" y2="300" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
-                    <!-- horizontal lines -->
                     <line x1="0" y1="100" x2="300" y2="100" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
                     <line x1="0" y1="200" x2="300" y2="200" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
-                    <!-- intersection dots -->
                     <circle cx="100" cy="100" r="3.5" fill="#fbbf24"/>
                     <circle cx="200" cy="100" r="3.5" fill="#fbbf24"/>
                     <circle cx="100" cy="200" r="3.5" fill="#fbbf24"/>
                     <circle cx="200" cy="200" r="3.5" fill="#fbbf24"/>
                 </svg>
             </div>
-
-            <!-- Diagonal grid -->
             <div id="grid-diagonal" class="diagonal-grid">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- main diagonals -->
-                    <line x1="0" y1="0"   x2="100" y2="100" stroke="rgba(255,255,255,0.55)" stroke-width="0.5"/>
-                    <line x1="100" y1="0" x2="0"   y2="100" stroke="rgba(255,255,255,0.55)" stroke-width="0.5"/>
-                    <!-- baroque diagonals (corner to midpoint) -->
-                    <line x1="0"   y1="0"   x2="50"  y2="100" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
-                    <line x1="100" y1="0"   x2="50"  y2="100" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
-                    <line x1="0"   y1="100" x2="50"  y2="0"   stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
-                    <line x1="100" y1="100" x2="50"  y2="0"   stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
+                    <line x1="0" y1="0" x2="100" y2="100" stroke="rgba(255,255,255,0.55)" stroke-width="0.5"/>
+                    <line x1="100" y1="0" x2="0" y2="100" stroke="rgba(255,255,255,0.55)" stroke-width="0.5"/>
+                    <line x1="0" y1="0" x2="50" y2="100" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
+                    <line x1="100" y1="0" x2="50" y2="100" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
+                    <line x1="0" y1="100" x2="50" y2="0" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
+                    <line x1="100" y1="100" x2="50" y2="0" stroke="rgba(251,191,36,0.45)" stroke-width="0.4"/>
                 </svg>
             </div>
         </div>
     </div>
 
+    <!-- Stamp mode picker dropdown -->
+    <div id="stamp-picker" class="controls-layer" style="pointer-events:none;">
+        <div id="stamp-picker-inner" style="
+            display:none; position:absolute; top:70px; right:14px; z-index:35;
+            background:rgba(0,0,0,0.88); backdrop-filter:blur(10px);
+            border:1px solid rgba(255,215,0,0.35); border-radius:14px;
+            overflow:hidden; pointer-events:auto; min-width:200px;
+        ">
+            <div style="padding:8px 16px 6px; font-size:0.7rem; color:rgba(255,215,0,0.7); font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">Chế độ tem thời gian</div>
+            <div class="stamp-option selected" data-mode="0">🚫 Tắt</div>
+            <div class="stamp-option" data-mode="1">🕐 Chỉ giờ &amp; ngày</div>
+            <div class="stamp-option" data-mode="2">📍 Giờ + Địa chỉ</div>
+            <div class="stamp-option" data-mode="3">🛰 Đầy đủ (GPS + Địa chỉ)</div>
+        </div>
+    </div>
+
     <div class="controls-layer">
         <div class="top-bar">
-            <div class="icon-btn" onclick="showRandomTip()" title="Mẹo Chụp Ảnh">
+            <div class="icon-btn" onclick="showRandomTip()" title="Mẹo chụp ảnh">
                 <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
             </div>
-            <div class="flex gap-3">
-                <div id="beauty-btn" class="icon-btn" onclick="toggleBeautyMode()" title="Làm mịn và sáng da">
+            <div class="flex gap-2 flex-wrap justify-end">
+                <!-- Stamp button -->
+                <div id="stamp-btn" class="icon-btn" onclick="toggleStampPicker()" title="Tem địa chỉ & giờ">
+                    <i data-lucide="map-pin" class="w-5 h-5"></i>
+                </div>
+                <div id="beauty-btn" class="icon-btn" onclick="toggleBeautyMode()" title="Làm đẹp">
                     <i data-lucide="sparkles" class="w-5 h-5"></i>
                 </div>
-                <div id="depth-btn" class="icon-btn" onclick="toggleDepthMode()" title="Chân dung (Xóa phông)">
+                <div id="depth-btn" class="icon-btn" onclick="toggleDepthMode()" title="Xóa phông">
                     <i data-lucide="aperture" class="w-5 h-5"></i>
                 </div>
-                <div id="ratio-btn" class="text-btn" onclick="cycleRatio()" title="Đổi tỉ lệ">FULL</div>
-                <div class="icon-btn" onclick="cycleGrid()" title="Đổi Lưới">
+                <div id="ratio-btn" class="text-btn" onclick="cycleRatio()">FULL</div>
+                <div class="icon-btn" onclick="cycleGrid()" title="Đổi lưới">
                     <i data-lucide="grid-3x3" class="w-5 h-5"></i>
                 </div>
             </div>
@@ -263,467 +333,649 @@
                 <i data-lucide="camera" class="w-4 h-4"></i> Khởi động máy ảnh
             </h3>
             <p id="guidance-text" class="text-sm text-gray-200">
-                Hãy đặt chủ thể chính vào các <span class="text-yellow-400 font-bold">điểm vàng</span> để bức ảnh tự nhiên và hút mắt nhất.
+                Đặt chủ thể vào các <span class="text-yellow-400 font-bold">điểm vàng</span> để bức ảnh tự nhiên và hút mắt nhất.
             </p>
         </div>
 
         <div class="bottom-bar">
-            <div class="w-14 h-14 rounded-lg bg-gray-800 border-2 border-gray-500 overflow-hidden" id="last-photo-preview" style="display:none; cursor:pointer;" onclick="showModal()">
-                <img id="thumb-img" src="" class="w-full h-full object-cover">
+            <!-- Thumbnail / Gallery trigger -->
+            <div id="gallery-trigger" style="width:56px;height:56px;cursor:pointer;flex-shrink:0;" onclick="openGallery()">
+                <div id="last-photo-preview" style="display:none;width:56px;height:56px;">
+                    <div style="position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,0.6);">
+                        <img id="thumb-img" src="" style="width:100%;height:100%;object-fit:cover;display:block;">
+                        <div id="photo-count-badge" style="
+                            position:absolute;bottom:3px;right:3px;
+                            background:rgba(0,0,0,0.7);color:#fbbf24;
+                            font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:8px;
+                        ">1</div>
+                    </div>
+                </div>
+                <div id="last-photo-placeholder" style="width:56px;height:56px;"></div>
             </div>
-            <div class="w-14 h-14" id="last-photo-placeholder" style="display:block;"></div>
 
             <div class="shutter-btn" onclick="takePhoto()"></div>
 
-            <div class="icon-btn w-14 h-14" onclick="switchCamera()">
+            <div class="icon-btn" style="width:56px;height:56px;" onclick="switchCamera()">
                 <i data-lucide="switch-camera" class="w-6 h-6"></i>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Xem trước và Lưu -->
+<!-- ── Preview modal ── -->
 <div id="preview-modal">
     <div class="p-4 flex justify-between items-center bg-black bg-opacity-90 text-white w-full z-10 relative">
-        <button onclick="closeModal()" class="text-lg flex items-center gap-2 px-2 py-1"><i data-lucide="chevron-left"></i> Quay lại</button>
-        <button onclick="savePhotoToAlbum()" class="bg-yellow-500 text-black px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">LƯU VÀO MÁY <i data-lucide="share" class="w-4 h-4"></i></button>
+        <button onclick="closeModal()" class="text-lg flex items-center gap-2 px-2 py-1">
+            <i data-lucide="chevron-left"></i> Quay lại
+        </button>
+        <button onclick="savePhotoToAlbum()" class="bg-yellow-500 text-black px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
+            LƯU VÀO MÁY <i data-lucide="share" class="w-4 h-4"></i>
+        </button>
     </div>
-
     <div class="flex-1 flex justify-center items-center overflow-hidden relative">
         <img id="preview-image" src="" alt="Captured" class="max-h-full">
         <div id="ios-save-hint" class="absolute bottom-10 bg-black bg-opacity-70 text-white text-xs px-4 py-2 rounded-full hidden">
-            Chọn "Save Image" (Lưu hình ảnh) để đưa vào Album
+            Chọn "Save Image" để đưa vào Album
         </div>
     </div>
-
     <div id="saving-overlay">
         <div class="spinner mb-3"></div>
         <div class="font-bold">Đang xử lý ảnh độ phân giải cao...</div>
     </div>
 </div>
 
-<canvas id="photo-canvas" style="display: none;"></canvas>
+<!-- ── Gallery modal ── -->
+<div id="gallery-modal">
+    <div class="gallery-header">
+        <div style="color:white;font-weight:700;font-size:1rem;display:flex;align-items:center;gap:8px;">
+            <i data-lucide="images" class="w-5 h-5 text-yellow-400"></i> Thư viện phiên
+        </div>
+        <button onclick="closeGallery()" style="color:white;background:rgba(255,255,255,0.12);border:none;border-radius:20px;padding:6px 16px;cursor:pointer;font-size:0.85rem;">
+            Đóng
+        </button>
+    </div>
+    <div id="gallery-count"></div>
+    <div id="gallery-grid"></div>
+    <div id="empty-gallery" style="display:none;">
+        <i data-lucide="camera-off" style="width:48px;height:48px;opacity:0.3;"></i>
+        <span style="font-size:0.9rem;">Chưa có ảnh nào trong phiên này</span>
+    </div>
+</div>
+
+<!-- ── Lightbox ── -->
+<div id="gallery-lightbox">
+    <div style="position:absolute;top:0;left:0;right:0;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.7);">
+        <button onclick="closeLightbox()" style="color:white;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:0.9rem;">
+            <i data-lucide="chevron-left" style="width:18px;height:18px;"></i> Thư viện
+        </button>
+        <span id="lightbox-index" style="color:rgba(255,255,255,0.5);font-size:0.8rem;"></span>
+    </div>
+    <img id="lightbox-img" src="" alt="">
+    <div class="lightbox-toolbar">
+        <button class="lb-btn" onclick="saveFromLightbox()">
+            <i data-lucide="download" style="width:16px;height:16px;"></i> Lưu
+        </button>
+        <button class="lb-btn" onclick="shareFromLightbox()">
+            <i data-lucide="share-2" style="width:16px;height:16px;"></i> Chia sẻ
+        </button>
+        <button class="lb-btn danger" onclick="deleteFromLightbox()">
+            <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Xóa
+        </button>
+    </div>
+</div>
+
+<canvas id="photo-canvas" style="display:none;"></canvas>
 
 <script>
-    lucide.createIcons();
+lucide.createIcons();
 
-    let stream = null;
-    let currentFacingMode = 'environment';
-    const videoElement = document.getElementById('camera-feed');
-    const viewFinder = document.getElementById('view-finder');
-    const canvasElement = document.getElementById('photo-canvas');
+// ─── State ────────────────────────────────────────────────────────────────────
+let stream = null;
+let currentFacingMode = 'environment';
+const videoElement   = document.getElementById('camera-feed');
+const viewFinder     = document.getElementById('view-finder');
+const canvasElement  = document.getElementById('photo-canvas');
 
-    // 0=free, 1=phi, 2=spiral, 3=thirds, 4=diagonal
-    let currentGrid = 1;
-    let guidanceVisible = true;
-    let capturedDataUrl = "";
-    let capturedBlob = null;
-    let guidanceTimeout = null;
-    let isDepthMode = false;
-    let isBeautyMode = false;
+let currentGrid        = 1;       // 0=off,1=phi,2=spiral,3=thirds,4=diagonal
+let guidanceVisible    = true;
+let capturedDataUrl    = "";
+let capturedBlob       = null;
+let guidanceTimeout    = null;
+let isDepthMode        = false;
+let isBeautyMode       = false;
+let stampPickerOpen    = false;
 
-    const ratios = [
-        { name: 'FULL', value: 'full' },
-        { name: '4:3',  value: 4/3 },
-        { name: '16:9', value: 16/9 },
-        { name: '1:1',  value: 1 }
-    ];
-    let currentRatioIndex = 0;
+const ratios = [
+    { name:'FULL', value:'full' },
+    { name:'4:3',  value:4/3   },
+    { name:'16:9', value:16/9  },
+    { name:'1:1',  value:1     }
+];
+let currentRatioIndex = 0;
 
-    // ─────────────────────────────────────────────
-    // 1. PINCH-TO-ZOOM
-    // ─────────────────────────────────────────────
-    let currentZoom   = 1;
-    let zoomMin       = 1;
-    let zoomMax       = 5;
-    let pinchStartDist = null;
-    let pinchStartZoom = 1;
-    let zoomHideTimer  = null;
+// ─── Gallery ──────────────────────────────────────────────────────────────────
+// Each entry: { dataUrl, blob, ts }
+let gallery = [];
+let lightboxIndex = 0;
 
-    function getZoomCapabilities() {
-        if (!stream) return;
-        const track = stream.getVideoTracks()[0];
-        if (!track) return;
-        const caps = track.getCapabilities ? track.getCapabilities() : {};
-        if (caps.zoom) {
-            zoomMin = caps.zoom.min ?? 1;
-            zoomMax = caps.zoom.max ?? 5;
-        }
-    }
+// ─── Stamp / Location ─────────────────────────────────────────────────────────
+// stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
+let stampMode     = 0;
+let geoCoords     = null;   // { lat, lon }
+let geoAddress    = '';
+let geoFetching   = false;
+let clockInterval = null;
 
-    function applyZoom(z) {
-        if (!stream) return;
-        const track = stream.getVideoTracks()[0];
-        if (!track || !track.getCapabilities) return;
-        const caps = track.getCapabilities();
-        if (!caps.zoom) return; // hardware zoom not supported – skip
-        z = Math.min(Math.max(z, zoomMin), zoomMax);
-        currentZoom = z;
-        track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
-
-        // show indicator
-        const ind = document.getElementById('zoom-indicator');
-        ind.textContent = currentZoom.toFixed(1) + '×';
-        ind.classList.add('visible');
-        clearTimeout(zoomHideTimer);
-        zoomHideTimer = setTimeout(() => ind.classList.remove('visible'), 1800);
-    }
-
-    function pinchDist(touches) {
-        const dx = touches[0].clientX - touches[1].clientX;
-        const dy = touches[0].clientY - touches[1].clientY;
-        return Math.hypot(dx, dy);
-    }
-
-    viewFinder.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
-            e.preventDefault();
-            pinchStartDist = pinchDist(e.touches);
-            pinchStartZoom = currentZoom;
-        }
-    }, { passive: false });
-
-    viewFinder.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && pinchStartDist !== null) {
-            e.preventDefault();
-            const scale = pinchDist(e.touches) / pinchStartDist;
-            applyZoom(pinchStartZoom * scale);
-        }
-    }, { passive: false });
-
-    viewFinder.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) pinchStartDist = null;
+function setStampMode(mode) {
+    stampMode = mode;
+    // update picker UI
+    document.querySelectorAll('.stamp-option').forEach(el => {
+        el.classList.toggle('selected', parseInt(el.dataset.mode) === mode);
     });
-
-    // ─────────────────────────────────────────────
-    // 2. TAP-TO-FOCUS & TAP-TO-EXPOSE
-    // ─────────────────────────────────────────────
-    let focusHideTimer = null;
-
-    function showFocusRing(x, y) {
-        const ring = document.getElementById('focus-ring');
-        ring.style.left = x + 'px';
-        ring.style.top  = y + 'px';
-        ring.className = 'focusing';
-        // after animation, switch to "locked" state
-        setTimeout(() => { ring.className = 'focused'; }, 400);
-        clearTimeout(focusHideTimer);
-        focusHideTimer = setTimeout(() => { ring.className = ''; }, 2500);
+    // update btn highlight
+    document.getElementById('stamp-btn').classList.toggle('btn-active', mode > 0);
+    // toggle live overlay
+    const liveStamp = document.getElementById('live-stamp');
+    if (mode === 0) {
+        liveStamp.classList.remove('visible');
+        if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    } else {
+        liveStamp.classList.add('visible');
+        tickClock();
+        if (!clockInterval) clockInterval = setInterval(tickClock, 1000);
+        if (mode >= 2 && !geoCoords && !geoFetching) fetchGeo();
     }
+    // close picker
+    closeStampPicker();
+    showGuidanceMsgs(
+        '<i data-lucide="map-pin" class="w-4 h-4 text-yellow-400"></i> Tem Địa Chỉ & Giờ',
+        stampModeDesc(mode)
+    );
+}
 
-    viewFinder.addEventListener('touchend', async (e) => {
-        // ignore if it was a pinch gesture
-        if (e.changedTouches.length !== 1 || pinchStartDist !== null) return;
-        // ignore if the touch moved significantly (scroll / pan)
-        const t = e.changedTouches[0];
+function stampModeDesc(m) {
+    return [
+        "Tắt — không in thông tin lên ảnh.",
+        "⏱ Chỉ in <b>Giờ & Ngày</b> lên góc ảnh.",
+        "📍 In <b>Giờ + Địa chỉ</b> lên ảnh (cần quyền vị trí).",
+        "🛰 In <b>GPS đầy đủ + Địa chỉ</b> — chính xác tuyệt đối."
+    ][m];
+}
 
-        const rect = viewFinder.getBoundingClientRect();
-        const tapX = t.clientX - rect.left;
-        const tapY = t.clientY - rect.top;
-
-        showFocusRing(t.clientX, t.clientY);
-
-        if (!stream) return;
-        const track = stream.getVideoTracks()[0];
-        if (!track || !track.getCapabilities) return;
-        const caps = track.getCapabilities();
-
-        // Normalise tap coordinates to [0,1] for pointsOfInterest
-        const normX = Math.min(Math.max(tapX / rect.width,  0), 1);
-        const normY = Math.min(Math.max(tapY / rect.height, 0), 1);
-
-        const advanced = {};
-        let hasConstraint = false;
-
-        if (caps.focusMode && caps.focusMode.includes('manual')) {
-            advanced.focusMode = 'manual';
-        } else if (caps.focusMode && caps.focusMode.includes('single-shot')) {
-            advanced.focusMode = 'single-shot';
+function tickClock() {
+    if (stampMode === 0) return;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+                  + '  ' + now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+    document.getElementById('live-time').textContent = timeStr;
+    if (stampMode >= 2) {
+        let addrLine = geoAddress || (geoFetching ? 'Đang lấy vị trí...' : '');
+        if (stampMode === 3 && geoCoords) {
+            addrLine = `${geoCoords.lat.toFixed(5)}, ${geoCoords.lon.toFixed(5)}` + (geoAddress ? '\n' + geoAddress : '');
         }
-
-        if (caps.pointsOfInterest) {
-            advanced.pointsOfInterest = [{ x: normX, y: normY }];
-            hasConstraint = true;
-        }
-
-        if (caps.exposureMode && caps.exposureMode.includes('manual')) {
-            advanced.exposureMode = 'manual';
-            hasConstraint = true;
-        } else if (caps.exposureMode && caps.exposureMode.includes('single-shot')) {
-            advanced.exposureMode = 'single-shot';
-            hasConstraint = true;
-        }
-
-        if (hasConstraint || advanced.focusMode) {
-            track.applyConstraints({ advanced: [advanced] }).catch(() => {});
-        }
-    });
-
-    // ─────────────────────────────────────────────
-    // GRID TIPS (updated for 5 modes)
-    // ─────────────────────────────────────────────
-    const gridTips = {
-        0: "<b>Chế độ Tự do:</b> Không có lưới, tự cảm nhận không gian và ánh sáng.",
-        1: "<b>Phi Grid (1:1.618):</b> Đặt mắt người (chân dung) hoặc đường chân trời (phong cảnh) vào các <span class='text-yellow-400 font-bold'>điểm vàng</span>.",
-        2: "<b>Xoắn Ốc Fibonacci:</b> Đặt chi tiết chủ đạo vào tâm xoắn ốc.",
-        3: "<b>Lưới 3×3 (Rule of Thirds):</b> Bố cục kinh điển nhất. Đặt chủ thể vào 4 điểm giao nhau để ảnh cân bằng và sinh động.",
-        4: "<b>Lưới Chéo (Diagonal):</b> Các đường chéo tạo cảm giác chuyển động và năng lượng. Trắng = chéo chính, Vàng = chéo baroque."
-    };
-
-    const gridIds = ['grid-phi', 'grid-spiral', 'grid-thirds', 'grid-diagonal'];
-    // currentGrid 0 = off, 1..4 = indices in gridIds (0-based: gridIds[currentGrid-1])
-
-    function cycleGrid() {
-        // hide all
-        gridIds.forEach(id => document.getElementById(id).classList.remove('active'));
-        currentGrid = (currentGrid + 1) % 5;
-        if (currentGrid > 0) {
-            document.getElementById(gridIds[currentGrid - 1]).classList.add('active');
-        }
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="grid" class="w-4 h-4 text-yellow-400"></i> Mẹo Bố Cục';
-        document.getElementById('guidance-text').innerHTML = gridTips[currentGrid];
-        lucide.createIcons(); showGuidance();
+        document.getElementById('live-addr').textContent = addrLine;
+    } else {
+        document.getElementById('live-addr').textContent = '';
     }
+}
 
-    // ─────────────────────────────────────────────
-    // EXISTING FEATURES (unchanged)
-    // ─────────────────────────────────────────────
-    const expertTips = [
-        "<b>Ánh sáng là tất cả:</b> Tận dụng 'Giờ vàng' lúc bình minh/hoàng hôn để có ánh sáng mềm mại.",
-        "<b>Khoảng trống không gian (Lead Room):</b> Nếu chủ thể đang nhìn về một hướng, hãy chừa không gian phía trước họ nhiều hơn.",
-        "<b>Đường dẫn (Leading Lines):</b> Dùng đường phố, hàng rào để dẫn ánh mắt người xem thẳng vào chủ thể.",
-        "<b>Khung trong khung (Framing):</b> Dùng cành cây, ô cửa sổ tạo khung viền tự nhiên bao quanh chủ thể.",
-        "<b>Dọn dẹp hậu cảnh:</b> Tránh để các đường dây điện hoặc nhánh cây 'mọc' ngang đầu chủ thể.",
-        "<b>Thay đổi góc độ:</b> Thử ngồi thấp xuống, hắt máy ảnh lên để chủ thể trông uy nghi hơn.",
-        "<b>Tiền cảnh mờ ảo:</b> Đưa ống kính sát vào một chiếc lá, mặt bàn để tạo lớp tiền cảnh mờ, ảnh sẽ có chiều sâu.",
-        "<b>Tương phản màu sắc:</b> Đặt chủ thể màu nóng nổi bật trên phông nền màu lạnh.",
-        "<b>Góc chụp Top-down:</b> Khi chụp đồ ăn, chuyển sang tỉ lệ 1:1, đưa máy ảnh thẳng góc 90 độ từ trên xuống.",
-        "<b>Điểm lấy nét:</b> Khi chụp chân dung, điểm vàng bắt buộc phải nằm ở 'Con mắt' gần ống kính nhất.",
-        "<b>Tap để lấy nét:</b> Chạm vào chủ thể trên màn hình để đặt điểm focus & đo sáng chính xác.",
-        "<b>Pinch để zoom:</b> Dùng 2 ngón tay kéo giãn/thu nhỏ để phóng to/thu nhỏ tinh tế hơn nút zoom."
-    ];
-
-    const ratioTips = {
-        'FULL': "<b>Tỉ lệ FULL:</b> Tận dụng toàn bộ cảm biến. Phù hợp chụp không gian kiến trúc.",
-        '4:3':  "<b>Tỉ lệ 4:3:</b> Khung hình nhiếp ảnh kinh điển. Hoàn hảo để chụp chân dung.",
-        '16:9': "<b>Tỉ lệ 16:9:</b> Khung hình điện ảnh (Cinematic). Tuyệt để chụp phong cảnh.",
-        '1:1':  "<b>Tỉ lệ 1:1 (Vuông):</b> Trọng tâm mạnh ở giữa. Tốt nhất cho đồ ăn, tĩnh vật."
-    };
-
-    function showRandomTip() {
-        const randomTip = expertTips[Math.floor(Math.random() * expertTips.length)];
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i> Tip Nhiếp Ảnh Chuyên Sâu';
-        document.getElementById('guidance-text').innerHTML = randomTip;
-        lucide.createIcons(); showGuidance(10000);
-    }
-
-    function toggleDepthMode() {
-        isDepthMode = !isDepthMode;
-        document.getElementById('depth-overlay').classList.toggle('active', isDepthMode);
-        document.getElementById('depth-btn').classList.toggle('btn-active', isDepthMode);
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="aperture" class="w-4 h-4 text-yellow-400"></i> Chân Dung';
-        document.getElementById('guidance-text').innerHTML = isDepthMode
-            ? "<b>Xóa Phông:</b> Giữ điện thoại <b>DỌC</b>, đưa khuôn mặt vào <b>TRUNG TÂM</b> khung hình." : "Đã tắt hiệu ứng chiều sâu.";
-        lucide.createIcons(); showGuidance();
-    }
-
-    function toggleBeautyMode() {
-        isBeautyMode = !isBeautyMode;
-        document.getElementById('beauty-btn').classList.toggle('btn-active', isBeautyMode);
-        videoElement.style.filter = isBeautyMode
-            ? "brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)" : "none";
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp Tự Nhiên';
-        document.getElementById('guidance-text').innerHTML = isBeautyMode
-            ? "<b>Sáng & Mịn Da:</b> Tự động nâng tone, làm mờ khuyết điểm và tạo sắc hồng tự nhiên."
-            : "Đã tắt chế độ làm đẹp.";
-        lucide.createIcons(); showGuidance();
-    }
-
-    function cycleRatio() {
-        currentRatioIndex = (currentRatioIndex + 1) % ratios.length;
-        document.getElementById('ratio-btn').innerText = ratios[currentRatioIndex].name;
-        updateViewFinder();
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="crop" class="w-4 h-4 text-yellow-400"></i> Mẹo Tỉ Lệ Hình';
-        document.getElementById('guidance-text').innerHTML = ratioTips[ratios[currentRatioIndex].name];
-        lucide.createIcons(); showGuidance();
-    }
-
-    function showGuidance(duration = 6000) {
-        const panel = document.getElementById('guidance-panel');
-        guidanceVisible = true;
-        panel.style.opacity = "1"; panel.style.pointerEvents = "auto";
-        if (guidanceTimeout) clearTimeout(guidanceTimeout);
-        guidanceTimeout = setTimeout(() => {
-            guidanceVisible = false;
-            panel.style.opacity = "0"; panel.style.pointerEvents = "none";
-        }, duration);
-    }
-
-    async function startCamera() {
-        if (stream) stream.getTracks().forEach(track => track.stop());
-
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            document.getElementById('guidance-title').innerHTML = '<i data-lucide="shield-alert" class="w-4 h-4 text-red-500"></i> Lỗi Bảo Mật';
-            document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Trình duyệt chặn Camera. Bạn hãy đảm bảo đang dùng HTTPS.</span>";
-            showGuidance(15000); return;
-        }
-
-        const highResConstraints = { video: { facingMode: currentFacingMode, width: { ideal: 4096 }, height: { ideal: 2160 } }, audio: false };
-        const basicConstraints   = { video: { facingMode: currentFacingMode }, audio: false };
-        const minimalConstraints = { video: true, audio: false };
-
-        try { stream = await navigator.mediaDevices.getUserMedia(highResConstraints); }
-        catch (err) {
-            try { stream = await navigator.mediaDevices.getUserMedia(basicConstraints); }
-            catch (fallbackErr) {
-                try { stream = await navigator.mediaDevices.getUserMedia(minimalConstraints); }
-                catch (finalErr) {
-                    document.getElementById('guidance-title').innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i> Lỗi Camera';
-                    document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Không thể truy cập Camera.</span>";
-                    showGuidance(); return;
-                }
-            }
-        }
-
-        videoElement.srcObject = stream;
-        videoElement.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-        videoElement.play().catch(e => console.error(e));
-        videoElement.onloadedmetadata = () => {
-            updateViewFinder();
-            currentZoom = 1;
-            getZoomCapabilities();
-        };
-    }
-
-    function switchCamera() {
-        currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-        startCamera();
-    }
-
-    function updateViewFinder() {
-        const ratioObj = ratios[currentRatioIndex];
-        const winW = window.innerWidth; const winH = window.innerHeight;
-        const isPortrait = winH > winW;
-        let targetW, targetH;
-
-        if (ratioObj.value === 'full') { targetW = winW; targetH = winH; }
-        else {
-            let ratio = ratioObj.value;
-            if (isPortrait && ratio !== 1) { ratio = 1 / ratio; }
-            targetW = winW; targetH = winW / ratio;
-            if (targetH > winH) { targetH = winH; targetW = winH * ratio; }
-        }
-        viewFinder.style.width  = `${targetW}px`;
-        viewFinder.style.height = `${targetH}px`;
-    }
-
-    window.addEventListener('resize', updateViewFinder);
-
-    function takePhoto() {
-        const flash = document.getElementById('flash-overlay');
-        flash.style.animation = 'none'; flash.offsetHeight; flash.style.animation = 'flashAnim 0.5s forwards';
-
-        if (!videoElement.videoWidth) return;
-
-        const vidW = videoElement.videoWidth, vidH = videoElement.videoHeight, vidRatio = vidW / vidH;
-        const vfW = viewFinder.offsetWidth, vfH = viewFinder.offsetHeight, vfRatio = vfW / vfH;
-
-        let cropW, cropH, startX, startY;
-        if (vidRatio > vfRatio) { cropH = vidH; cropW = vidH * vfRatio; startX = (vidW - cropW) / 2; startY = 0; }
-        else { cropW = vidW; cropH = vidW / vfRatio; startX = 0; startY = (vidH - cropH) / 2; }
-
-        canvasElement.width = cropW; canvasElement.height = cropH;
-        const ctx = canvasElement.getContext('2d');
-        if (currentFacingMode === 'user') { ctx.translate(cropW, 0); ctx.scale(-1, 1); }
-
-        if (isBeautyMode) {
-            ctx.filter = 'brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)';
-        } else {
-            ctx.filter = 'none';
-        }
-        ctx.drawImage(videoElement, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
-        ctx.filter = 'none';
-
-        if (isBeautyMode) {
-            const beautyCanvas = document.createElement('canvas');
-            beautyCanvas.width = cropW; beautyCanvas.height = cropH;
-            const bCtx = beautyCanvas.getContext('2d');
-            const blurAmount = Math.max(cropW, cropH) * 0.005;
-            bCtx.filter = `blur(${blurAmount}px)`;
-            bCtx.drawImage(canvasElement, 0, 0);
-            ctx.globalAlpha = 0.35;
-            ctx.globalCompositeOperation = 'screen';
-            ctx.drawImage(beautyCanvas, 0, 0);
-            ctx.globalAlpha = 1.0;
-            ctx.globalCompositeOperation = 'source-over';
-        }
-
-        if (isDepthMode) {
-            const offCanvas = document.createElement('canvas'); offCanvas.width = cropW; offCanvas.height = cropH;
-            const offCtx = offCanvas.getContext('2d');
-            const blurAmount = Math.max(cropW, cropH) * 0.015;
-            offCtx.filter = `blur(${blurAmount}px)`;
-            offCtx.drawImage(videoElement, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
-            offCtx.filter = 'none';
-            offCtx.globalCompositeOperation = 'destination-out';
-            const minDim = Math.min(cropW, cropH);
-            const grad = offCtx.createRadialGradient(cropW/2, cropH/2, minDim * 0.25, cropW/2, cropH/2, minDim * 0.75);
-            grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
-            offCtx.fillStyle = grad; offCtx.fillRect(0, 0, cropW, cropH);
-            ctx.drawImage(offCanvas, 0, 0);
-        }
-
-        capturedDataUrl = canvasElement.toDataURL('image/jpeg', 0.95);
-        canvasElement.toBlob((blob) => { capturedBlob = blob; }, 'image/jpeg', 0.95);
-
-        document.getElementById('last-photo-placeholder').style.display = 'none';
-        document.getElementById('last-photo-preview').style.display = 'block';
-        document.getElementById('thumb-img').src = capturedDataUrl;
-    }
-
-    function showModal() {
-        if (!capturedDataUrl) return;
-        document.getElementById('preview-image').src = capturedDataUrl;
-        document.getElementById('preview-modal').style.display = 'flex';
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIOS && navigator.share) {
-            document.getElementById('ios-save-hint').classList.remove('hidden');
-            setTimeout(() => { document.getElementById('ios-save-hint').classList.add('hidden'); }, 4000);
-        }
-    }
-
-    function closeModal() { document.getElementById('preview-modal').style.display = 'none'; }
-
-    async function savePhotoToAlbum() {
-        if (!capturedBlob && !capturedDataUrl) return;
-        const overlay = document.getElementById('saving-overlay');
-        overlay.style.display = 'flex';
-        const fileName = `GoldenRatio_${ratios[currentRatioIndex].name.replace(':','x')}_${new Date().getTime()}.jpg`;
-
+async function fetchGeo() {
+    if (!navigator.geolocation) { geoAddress = 'Thiết bị không hỗ trợ GPS'; return; }
+    geoFetching = true;
+    navigator.geolocation.getCurrentPosition(async pos => {
+        geoCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        geoFetching = false;
         try {
-            if (navigator.share && navigator.canShare) {
-                const file = new File([capturedBlob], fileName, { type: 'image/jpeg' });
-                if (navigator.canShare({ files: [file] })) {
-                    overlay.style.display = 'none';
-                    await navigator.share({ title: 'Golden Camera Pro Photo', files: [file] });
-                    closeModal(); return;
-                }
-            }
-            const link = document.createElement('a');
-            link.download = fileName; link.href = capturedDataUrl;
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            overlay.style.display = 'none'; closeModal();
-        } catch (error) {
-            console.log('Share canceled or failed:', error);
-            overlay.style.display = 'none';
-        }
+            const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${geoCoords.lat}&lon=${geoCoords.lon}&format=json&accept-language=vi`);
+            const data = await res.json();
+            const a    = data.address || {};
+            const parts = [
+                a.road || a.pedestrian || a.footway,
+                a.suburb || a.quarter,
+                a.city || a.town || a.village || a.county,
+                a.state
+            ].filter(Boolean);
+            geoAddress = parts.join(', ');
+        } catch(e) { geoAddress = `${geoCoords.lat.toFixed(4)}, ${geoCoords.lon.toFixed(4)}`; }
+        tickClock();
+    }, err => {
+        geoFetching = false;
+        geoAddress = 'Không lấy được vị trí';
+        tickClock();
+    }, { timeout: 10000 });
+}
+
+function toggleStampPicker() {
+    stampPickerOpen = !stampPickerOpen;
+    document.getElementById('stamp-picker-inner').style.display = stampPickerOpen ? 'block' : 'none';
+    if (stampPickerOpen) {
+        // close on outside tap
+        setTimeout(() => document.addEventListener('touchstart', outsidePicker, { once:true }), 100);
+    }
+}
+function closeStampPicker() {
+    stampPickerOpen = false;
+    document.getElementById('stamp-picker-inner').style.display = 'none';
+}
+function outsidePicker(e) {
+    if (!document.getElementById('stamp-picker-inner').contains(e.target) &&
+        !document.getElementById('stamp-btn').contains(e.target)) closeStampPicker();
+}
+
+// wire up picker options
+document.querySelectorAll('.stamp-option').forEach(el => {
+    el.addEventListener('click', () => setStampMode(parseInt(el.dataset.mode)));
+});
+
+// ─── Stamp bake-in on canvas ───────────────────────────────────────────────────
+function bakeStamp(ctx, w, h) {
+    if (stampMode === 0) return;
+    const now    = new Date();
+    const timeStr = now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+                  + '  ' + now.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+    let lines = [timeStr];
+    if (stampMode >= 2 && geoAddress) lines.push(geoAddress);
+    if (stampMode === 3 && geoCoords)  lines.push(`${geoCoords.lat.toFixed(5)}, ${geoCoords.lon.toFixed(5)}`);
+
+    const baseFontSize = Math.max(22, Math.round(w * 0.028));
+    const padding      = baseFontSize * 0.8;
+    const lineH        = baseFontSize * 1.45;
+    const totalH       = lines.length * lineH + padding;
+    const maxW         = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0) + padding * 2;
+
+    // background pill
+    ctx.save();
+    ctx.globalAlpha = 0.62;
+    ctx.fillStyle   = '#000';
+    const bx = padding * 0.5, by = h - totalH - padding * 0.5;
+    roundRect(ctx, bx, by, maxW, totalH, baseFontSize * 0.5);
+    ctx.fill();
+    ctx.restore();
+
+    // text
+    ctx.save();
+    ctx.font         = `600 ${baseFontSize}px -apple-system, sans-serif`;
+    ctx.fillStyle    = '#ffffff';
+    ctx.shadowColor  = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur   = 4;
+    lines.forEach((line, i) => {
+        ctx.fillText(line, padding * 1.2, h - totalH - padding * 0.1 + (i + 1) * lineH);
+    });
+    ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// ─── Zoom ──────────────────────────────────────────────────────────────────────
+let currentZoom = 1, zoomMin = 1, zoomMax = 5;
+let pinchStartDist = null, pinchStartZoom = 1, zoomHideTimer = null;
+
+function getZoomCapabilities() {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    const caps = track.getCapabilities();
+    if (caps.zoom) { zoomMin = caps.zoom.min ?? 1; zoomMax = caps.zoom.max ?? 5; }
+}
+
+function applyZoom(z) {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    if (!track.getCapabilities().zoom) return;
+    z = Math.min(Math.max(z, zoomMin), zoomMax);
+    currentZoom = z;
+    track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
+    const ind = document.getElementById('zoom-indicator');
+    ind.textContent = z.toFixed(1) + '×';
+    ind.classList.add('visible');
+    clearTimeout(zoomHideTimer);
+    zoomHideTimer = setTimeout(() => ind.classList.remove('visible'), 1800);
+}
+
+function pinchDist(t) { return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
+
+viewFinder.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { e.preventDefault(); pinchStartDist = pinchDist(e.touches); pinchStartZoom = currentZoom; }
+}, { passive:false });
+
+viewFinder.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinchStartDist !== null) {
+        e.preventDefault();
+        applyZoom(pinchStartZoom * (pinchDist(e.touches) / pinchStartDist));
+    }
+}, { passive:false });
+
+viewFinder.addEventListener('touchend', e => { if (e.touches.length < 2) pinchStartDist = null; });
+
+// ─── Tap-to-focus ──────────────────────────────────────────────────────────────
+let focusHideTimer = null;
+
+function showFocusRing(x, y) {
+    const ring = document.getElementById('focus-ring');
+    ring.style.left = x+'px'; ring.style.top = y+'px';
+    ring.className = 'focusing';
+    setTimeout(() => { ring.className = 'focused'; }, 400);
+    clearTimeout(focusHideTimer);
+    focusHideTimer = setTimeout(() => { ring.className = ''; }, 2500);
+}
+
+viewFinder.addEventListener('touchend', async e => {
+    if (e.changedTouches.length !== 1 || pinchStartDist !== null) return;
+    const t = e.changedTouches[0];
+    const rect = viewFinder.getBoundingClientRect();
+    const tapX = t.clientX - rect.left, tapY = t.clientY - rect.top;
+    showFocusRing(t.clientX, t.clientY);
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    const caps = track.getCapabilities();
+    const advanced = {};
+    if (caps.focusMode?.includes('manual'))      advanced.focusMode   = 'manual';
+    else if (caps.focusMode?.includes('single-shot')) advanced.focusMode = 'single-shot';
+    if (caps.pointsOfInterest) advanced.pointsOfInterest = [{ x: tapX/rect.width, y: tapY/rect.height }];
+    if (caps.exposureMode?.includes('manual'))       advanced.exposureMode = 'manual';
+    else if (caps.exposureMode?.includes('single-shot')) advanced.exposureMode = 'single-shot';
+    if (Object.keys(advanced).length) track.applyConstraints({ advanced: [advanced] }).catch(() => {});
+});
+
+// ─── Grids ─────────────────────────────────────────────────────────────────────
+const gridIds  = ['grid-phi','grid-spiral','grid-thirds','grid-diagonal'];
+const gridTips = {
+    0: "<b>Chế độ Tự do:</b> Không có lưới, tự cảm nhận không gian và ánh sáng.",
+    1: "<b>Phi Grid (1:1.618):</b> Đặt mắt người hoặc đường chân trời vào các <span class='text-yellow-400 font-bold'>điểm vàng</span>.",
+    2: "<b>Xoắn Ốc Fibonacci:</b> Đặt chi tiết chủ đạo vào tâm xoắn ốc.",
+    3: "<b>Lưới 3×3 (Rule of Thirds):</b> Bố cục kinh điển. Đặt chủ thể vào 4 điểm giao để ảnh sinh động.",
+    4: "<b>Lưới Chéo (Diagonal):</b> Đường chéo tạo cảm giác chuyển động. Trắng = chéo chính, Vàng = baroque."
+};
+
+function cycleGrid() {
+    gridIds.forEach(id => document.getElementById(id).classList.remove('active'));
+    currentGrid = (currentGrid + 1) % 5;
+    if (currentGrid > 0) document.getElementById(gridIds[currentGrid-1]).classList.add('active');
+    showGuidanceMsgs('<i data-lucide="grid" class="w-4 h-4 text-yellow-400"></i> Mẹo Bố Cục', gridTips[currentGrid]);
+}
+
+// ─── Tips & guidance ───────────────────────────────────────────────────────────
+const expertTips = [
+    "<b>Ánh sáng là tất cả:</b> Tận dụng 'Giờ vàng' lúc bình minh/hoàng hôn.",
+    "<b>Lead Room:</b> Nếu chủ thể nhìn về một hướng, chừa không gian phía trước nhiều hơn.",
+    "<b>Leading Lines:</b> Dùng đường phố, hàng rào dẫn ánh mắt vào chủ thể.",
+    "<b>Framing:</b> Dùng cành cây, ô cửa sổ tạo khung viền tự nhiên.",
+    "<b>Hậu cảnh sạch:</b> Tránh đường dây điện hoặc nhánh cây 'mọc' ngang đầu.",
+    "<b>Thay đổi góc:</b> Ngồi thấp, hắt máy lên để chủ thể trông uy nghi hơn.",
+    "<b>Tiền cảnh mờ:</b> Đưa ống kính sát lá cây để tạo lớp tiền cảnh có chiều sâu.",
+    "<b>Tương phản màu:</b> Chủ thể màu nóng trên nền màu lạnh.",
+    "<b>Top-down:</b> Chụp đồ ăn? Đưa máy thẳng góc 90° từ trên xuống với tỉ lệ 1:1.",
+    "<b>Điểm nét:</b> Chân dung — điểm vàng bắt buộc nằm ở mắt gần ống kính nhất.",
+    "<b>Tap để lấy nét:</b> Chạm vào chủ thể để đặt điểm focus & đo sáng chính xác.",
+    "<b>Pinch để zoom:</b> 2 ngón tay kéo giãn/thu để zoom tinh tế hơn.",
+    "<b>Tem địa chỉ:</b> Bật icon 📍 để in giờ & địa chỉ lên ảnh kỷ niệm."
+];
+
+const ratioTips = {
+    'FULL': "<b>Tỉ lệ FULL:</b> Toàn bộ cảm biến — phù hợp kiến trúc & không gian rộng.",
+    '4:3':  "<b>Tỉ lệ 4:3:</b> Khung hình nhiếp ảnh kinh điển — hoàn hảo cho chân dung.",
+    '16:9': "<b>Tỉ lệ 16:9:</b> Khung điện ảnh cinematic — tuyệt cho phong cảnh.",
+    '1:1':  "<b>Tỉ lệ 1:1 (Vuông):</b> Trọng tâm mạnh ở giữa — tốt nhất cho đồ ăn, tĩnh vật."
+};
+
+function showGuidanceMsgs(title, text, dur=6000) {
+    document.getElementById('guidance-title').innerHTML = title;
+    document.getElementById('guidance-text').innerHTML  = text;
+    lucide.createIcons(); showGuidance(dur);
+}
+function showRandomTip() {
+    const t = expertTips[Math.floor(Math.random() * expertTips.length)];
+    showGuidanceMsgs('<i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i> Tip Nhiếp Ảnh', t, 10000);
+}
+function toggleDepthMode() {
+    isDepthMode = !isDepthMode;
+    document.getElementById('depth-overlay').classList.toggle('active', isDepthMode);
+    document.getElementById('depth-btn').classList.toggle('btn-active', isDepthMode);
+    showGuidanceMsgs('<i data-lucide="aperture" class="w-4 h-4 text-yellow-400"></i> Chân Dung',
+        isDepthMode ? "<b>Xóa Phông:</b> Giữ điện thoại <b>DỌC</b>, khuôn mặt vào <b>TRUNG TÂM</b>." : "Đã tắt hiệu ứng chiều sâu.");
+}
+function toggleBeautyMode() {
+    isBeautyMode = !isBeautyMode;
+    document.getElementById('beauty-btn').classList.toggle('btn-active', isBeautyMode);
+    videoElement.style.filter = isBeautyMode ? "brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)" : "none";
+    showGuidanceMsgs('<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp Tự Nhiên',
+        isBeautyMode ? "<b>Sáng & Mịn Da:</b> Nâng tone, làm mờ khuyết điểm, sắc hồng tự nhiên." : "Đã tắt chế độ làm đẹp.");
+}
+function cycleRatio() {
+    currentRatioIndex = (currentRatioIndex + 1) % ratios.length;
+    document.getElementById('ratio-btn').innerText = ratios[currentRatioIndex].name;
+    updateViewFinder();
+    showGuidanceMsgs('<i data-lucide="crop" class="w-4 h-4 text-yellow-400"></i> Tỉ Lệ Hình', ratioTips[ratios[currentRatioIndex].name]);
+}
+function showGuidance(dur=6000) {
+    const p = document.getElementById('guidance-panel');
+    p.style.opacity = "1"; p.style.pointerEvents = "auto";
+    if (guidanceTimeout) clearTimeout(guidanceTimeout);
+    guidanceTimeout = setTimeout(() => { p.style.opacity="0"; p.style.pointerEvents="none"; }, dur);
+}
+
+// ─── Camera ────────────────────────────────────────────────────────────────────
+async function startCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (!navigator.mediaDevices?.getUserMedia) {
+        showGuidanceMsgs('<i data-lucide="shield-alert" class="w-4 h-4 text-red-500"></i> Lỗi',
+            "<span class='text-red-400'>Trình duyệt chặn Camera. Đảm bảo dùng HTTPS.</span>", 15000); return;
+    }
+    const hires   = { video:{ facingMode:currentFacingMode, width:{ideal:4096}, height:{ideal:2160} }, audio:false };
+    const basic   = { video:{ facingMode:currentFacingMode }, audio:false };
+    const minimal = { video:true, audio:false };
+    try      { stream = await navigator.mediaDevices.getUserMedia(hires); }
+    catch(e) { try { stream = await navigator.mediaDevices.getUserMedia(basic); }
+    catch(e) { try { stream = await navigator.mediaDevices.getUserMedia(minimal); }
+    catch(e) { showGuidanceMsgs('<i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i> Lỗi Camera',
+                "<span class='text-red-400'>Không thể truy cập Camera.</span>"); return; } } }
+    videoElement.srcObject = stream;
+    videoElement.style.transform = currentFacingMode==='user' ? 'scaleX(-1)' : 'scaleX(1)';
+    videoElement.play().catch(()=>{});
+    videoElement.onloadedmetadata = () => { updateViewFinder(); currentZoom=1; getZoomCapabilities(); };
+}
+function switchCamera() { currentFacingMode = currentFacingMode==='environment'?'user':'environment'; startCamera(); }
+function updateViewFinder() {
+    const r = ratios[currentRatioIndex], winW=window.innerWidth, winH=window.innerHeight;
+    let tW, tH;
+    if (r.value==='full') { tW=winW; tH=winH; }
+    else {
+        let ratio = r.value;
+        if (winH>winW && ratio!==1) ratio = 1/ratio;
+        tW=winW; tH=winW/ratio;
+        if (tH>winH) { tH=winH; tW=winH*ratio; }
+    }
+    viewFinder.style.width = tW+'px'; viewFinder.style.height = tH+'px';
+}
+window.addEventListener('resize', updateViewFinder);
+
+// ─── Capture ───────────────────────────────────────────────────────────────────
+function takePhoto() {
+    const flash = document.getElementById('flash-overlay');
+    flash.style.animation='none'; flash.offsetHeight; flash.style.animation='flashAnim 0.5s forwards';
+    if (!videoElement.videoWidth) return;
+
+    const vidW=videoElement.videoWidth, vidH=videoElement.videoHeight, vidR=vidW/vidH;
+    const vfW=viewFinder.offsetWidth,   vfH=viewFinder.offsetHeight,   vfR=vfW/vfH;
+    let cropW, cropH, sx, sy;
+    if (vidR>vfR) { cropH=vidH; cropW=vidH*vfR; sx=(vidW-cropW)/2; sy=0; }
+    else           { cropW=vidW; cropH=vidW/vfR; sx=0; sy=(vidH-cropH)/2; }
+
+    canvasElement.width=cropW; canvasElement.height=cropH;
+    const ctx = canvasElement.getContext('2d');
+    if (currentFacingMode==='user') { ctx.translate(cropW,0); ctx.scale(-1,1); }
+    ctx.filter = isBeautyMode ? 'brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)' : 'none';
+    ctx.drawImage(videoElement, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
+    ctx.filter = 'none';
+
+    if (isBeautyMode) {
+        const bc=document.createElement('canvas'); bc.width=cropW; bc.height=cropH;
+        const bx=bc.getContext('2d'); bx.filter=`blur(${Math.max(cropW,cropH)*0.005}px)`;
+        bx.drawImage(canvasElement,0,0);
+        ctx.globalAlpha=0.35; ctx.globalCompositeOperation='screen'; ctx.drawImage(bc,0,0);
+        ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+    }
+    if (isDepthMode) {
+        const oc=document.createElement('canvas'); oc.width=cropW; oc.height=cropH;
+        const ox=oc.getContext('2d'); ox.filter=`blur(${Math.max(cropW,cropH)*0.015}px)`;
+        ox.drawImage(videoElement, sx, sy, cropW, cropH, 0, 0, cropW, cropH); ox.filter='none';
+        ox.globalCompositeOperation='destination-out';
+        const g=ox.createRadialGradient(cropW/2,cropH/2,Math.min(cropW,cropH)*0.25,cropW/2,cropH/2,Math.min(cropW,cropH)*0.75);
+        g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
+        ox.fillStyle=g; ox.fillRect(0,0,cropW,cropH); ctx.drawImage(oc,0,0);
     }
 
-    window.onload = () => {
-        updateViewFinder();
-        startCamera();
-        setTimeout(() => { showRandomTip(); }, 3000);
-    };
+    // bake stamp
+    bakeStamp(ctx, cropW, cropH);
+
+    const dataUrl = canvasElement.toDataURL('image/jpeg', 0.95);
+    canvasElement.toBlob(blob => {
+        const entry = { dataUrl, blob, ts: new Date() };
+        gallery.unshift(entry);
+        capturedDataUrl = dataUrl;
+        capturedBlob    = blob;
+        updateThumb();
+    }, 'image/jpeg', 0.95);
+}
+
+function updateThumb() {
+    document.getElementById('last-photo-placeholder').style.display = 'none';
+    document.getElementById('last-photo-preview').style.display    = 'block';
+    document.getElementById('thumb-img').src = gallery[0].dataUrl;
+    document.getElementById('photo-count-badge').textContent = gallery.length;
+}
+
+// ─── Preview modal ─────────────────────────────────────────────────────────────
+function showModal() {
+    if (!capturedDataUrl) return;
+    document.getElementById('preview-image').src = capturedDataUrl;
+    document.getElementById('preview-modal').style.display = 'flex';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS && navigator.share) {
+        document.getElementById('ios-save-hint').classList.remove('hidden');
+        setTimeout(() => document.getElementById('ios-save-hint').classList.add('hidden'), 4000);
+    }
+}
+function closeModal() { document.getElementById('preview-modal').style.display='none'; }
+
+async function savePhotoToAlbum(blob=capturedBlob, dataUrl=capturedDataUrl) {
+    if (!blob && !dataUrl) return;
+    const overlay  = document.getElementById('saving-overlay');
+    overlay.style.display = 'flex';
+    const fileName = `GoldenRatio_${ratios[currentRatioIndex].name.replace(':','x')}_${Date.now()}.jpg`;
+    try {
+        if (navigator.share && navigator.canShare) {
+            const file = new File([blob], fileName, { type:'image/jpeg' });
+            if (navigator.canShare({ files:[file] })) {
+                overlay.style.display='none';
+                await navigator.share({ title:'Golden Camera Pro', files:[file] });
+                closeModal(); return;
+            }
+        }
+        const link = document.createElement('a');
+        link.download=fileName; link.href=dataUrl;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        overlay.style.display='none'; closeModal();
+    } catch(e) { overlay.style.display='none'; }
+}
+
+// ─── Gallery ───────────────────────────────────────────────────────────────────
+function openGallery() {
+    if (gallery.length === 0 && capturedDataUrl === '') return;
+    renderGallery();
+    document.getElementById('gallery-modal').classList.add('open');
+    lucide.createIcons();
+}
+function closeGallery() { document.getElementById('gallery-modal').classList.remove('open'); }
+
+function renderGallery() {
+    const grid = document.getElementById('gallery-grid');
+    const empty = document.getElementById('empty-gallery');
+    const countEl = document.getElementById('gallery-count');
+    grid.innerHTML = '';
+    if (gallery.length === 0) {
+        grid.style.display = 'none'; empty.style.display = 'flex'; countEl.textContent = '';
+        lucide.createIcons(); return;
+    }
+    grid.style.display = 'grid'; empty.style.display = 'none';
+    countEl.textContent = `${gallery.length} ảnh trong phiên này`;
+
+    gallery.forEach((item, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'gallery-item';
+        wrap.innerHTML = `
+            <img src="${item.dataUrl}" loading="lazy">
+            <button class="del-btn" onclick="deletePhoto(${idx}, event)">✕</button>
+        `;
+        wrap.addEventListener('click', e => { if (!e.target.classList.contains('del-btn')) openLightbox(idx); });
+        grid.appendChild(wrap);
+    });
+    lucide.createIcons();
+}
+
+function deletePhoto(idx, e) {
+    e?.stopPropagation();
+    gallery.splice(idx, 1);
+    if (gallery.length === 0) {
+        capturedDataUrl = ''; capturedBlob = null;
+        document.getElementById('last-photo-preview').style.display = 'none';
+        document.getElementById('last-photo-placeholder').style.display = 'block';
+    } else {
+        capturedDataUrl = gallery[0].dataUrl; capturedBlob = gallery[0].blob;
+        updateThumb();
+    }
+    renderGallery();
+}
+
+// ─── Lightbox ──────────────────────────────────────────────────────────────────
+function openLightbox(idx) {
+    lightboxIndex = idx;
+    const item = gallery[idx];
+    document.getElementById('lightbox-img').src = item.dataUrl;
+    document.getElementById('lightbox-index').textContent = `${idx+1} / ${gallery.length}`;
+    document.getElementById('gallery-lightbox').classList.add('open');
+    lucide.createIcons();
+}
+function closeLightbox() { document.getElementById('gallery-lightbox').classList.remove('open'); }
+
+async function saveFromLightbox() {
+    const item = gallery[lightboxIndex];
+    if (!item) return;
+    const fileName = `GoldenRatio_${Date.now()}.jpg`;
+    if (navigator.share && navigator.canShare) {
+        const file = new File([item.blob], fileName, { type:'image/jpeg' });
+        if (navigator.canShare({ files:[file] })) { await navigator.share({ title:'Golden Camera Pro', files:[file] }); return; }
+    }
+    const link = document.createElement('a'); link.download=fileName; link.href=item.dataUrl;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+async function shareFromLightbox() { await saveFromLightbox(); }
+function deleteFromLightbox() {
+    deletePhoto(lightboxIndex);
+    if (gallery.length === 0) { closeLightbox(); return; }
+    lightboxIndex = Math.min(lightboxIndex, gallery.length-1);
+    openLightbox(lightboxIndex);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+window.onload = () => {
+    updateViewFinder(); startCamera();
+    setTimeout(() => showRandomTip(), 3000);
+};
 </script>
 </body>
 </html>
