@@ -826,6 +826,23 @@
             <div class="stamp-seg"        data-style="bold"   onclick="setStampStyle('bold')">  <span class="seg-icon">■</span>Bold</div>
         </div>
 
+        <!-- Text size -->
+        <div style="padding:8px 16px 2px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;">Cỡ chữ</div>
+        <div class="stamp-seg-row">
+            <div class="stamp-seg active" data-size="normal" onclick="setStampSize('normal')"><span class="seg-icon" style="font-size:0.75rem;font-weight:700;">Aa</span>Vừa</div>
+            <div class="stamp-seg"        data-size="large"  onclick="setStampSize('large')"> <span class="seg-icon" style="font-size:1rem;font-weight:700;">Aa</span>Lớn</div>
+            <div class="stamp-seg"        data-size="xl"     onclick="setStampSize('xl')">    <span class="seg-icon" style="font-size:1.3rem;font-weight:700;">Aa</span>XL</div>
+        </div>
+
+        <!-- Map icon toggle -->
+        <div style="padding:8px 16px 2px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;">Icon địa điểm</div>
+        <div class="stamp-seg-row">
+            <div class="stamp-seg active" data-mapicon="pin"    onclick="setMapIcon('pin')">   <span class="seg-icon">📍</span>Pin</div>
+            <div class="stamp-seg"        data-mapicon="flag"   onclick="setMapIcon('flag')">  <span class="seg-icon">🚩</span>Flag</div>
+            <div class="stamp-seg"        data-mapicon="circle" onclick="setMapIcon('circle')"><span class="seg-icon">⊙</span>Dot</div>
+            <div class="stamp-seg"        data-mapicon="none"   onclick="setMapIcon('none')">  <span class="seg-icon">—</span>Không</div>
+        </div>
+
         <!-- Position -->
         <div style="padding:8px 16px 2px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;">Vị trí</div>
         <div class="stamp-seg-row" style="gap:4px;">
@@ -1217,6 +1234,7 @@ let lightboxIndex = 0;
 let stampMode     = 0;
 let stampStyle    = 'film';    // 'film' | 'glass' | 'minimal' | 'bold'
 let stampPos      = 'br';      // 'tl' | 'tr' | 'bl' | 'br'
+let stampSize     = 'normal';  // 'normal' | 'large' | 'xl'
 let geoCoords     = null;   // { lat, lon }
 let geoAddress    = '';     // full address string
 let geoPlaceName  = '';     // short landmark / street name for stamp
@@ -1354,6 +1372,8 @@ document.querySelectorAll('.stamp-option').forEach(el => {
     el.addEventListener('click', () => setStampMode(parseInt(el.dataset.mode)));
 });
 
+let stampMapIcon = 'pin';  // 'pin' | 'flag' | 'circle' | 'none'
+
 function setStampStyle(s) {
     stampStyle = s;
     document.querySelectorAll('[data-style]').forEach(el =>
@@ -1363,6 +1383,67 @@ function setStampPos(p) {
     stampPos = p;
     document.querySelectorAll('[data-pos]').forEach(el =>
         el.classList.toggle('active', el.dataset.pos === p));
+}
+function setStampSize(s) {
+    stampSize = s;
+    document.querySelectorAll('[data-size]').forEach(el =>
+        el.classList.toggle('active', el.dataset.size === s));
+}
+function setMapIcon(m) {
+    stampMapIcon = m;
+    document.querySelectorAll('[data-mapicon]').forEach(el =>
+        el.classList.toggle('active', el.dataset.mapicon === m));
+}
+
+// ── Canvas map icon drawers ────────────────────────────────────────────────────
+function drawMapPin(ctx, cx, cy, r, color) {
+    // Teardrop pin shape
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx, cy - r*0.3, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx - r*0.55, cy - r*0.1);
+    ctx.quadraticCurveTo(cx, cy + r*1.35, cx, cy + r*1.35);
+    ctx.quadraticCurveTo(cx, cy + r*1.35, cx + r*0.55, cy - r*0.1);
+    ctx.fill();
+    // inner white dot
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(cx, cy - r*0.3, r*0.38, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawMapFlag(ctx, cx, cy, r, color) {
+    ctx.save();
+    const poleH = r * 2.6;
+    // pole
+    ctx.strokeStyle = color; ctx.lineWidth = r * 0.22; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - poleH); ctx.stroke();
+    // flag triangle
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - poleH);
+    ctx.lineTo(cx + r * 1.4, cy - poleH + r * 0.7);
+    ctx.lineTo(cx, cy - poleH + r * 1.4);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+}
+
+function drawMapCircle(ctx, cx, cy, r, color) {
+    ctx.save();
+    // outer ring
+    ctx.strokeStyle = color; ctx.lineWidth = r * 0.28;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.9, 0, Math.PI*2); ctx.stroke();
+    // inner fill
+    ctx.fillStyle = color; ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.5, 0, Math.PI*2); ctx.fill();
+    // pulse ring
+    ctx.globalAlpha = 0.18; ctx.lineWidth = r * 0.15;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.5, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
 }
 
 // ─── Stamp bake-in on canvas — multi-style ────────────────────────────────────
@@ -1382,8 +1463,9 @@ function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
     if (stampMode >= 2) place = geoPlaceName || geoAddress || '';
     if (stampMode === 3 && geoCoords) coord = `${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E`;
 
-    // ── Sizes ──
-    const unit  = Math.max(18, Math.round(w * 0.024));
+    // ── Sizes — apply stampSize multiplier ──
+    const sizeScale = stampSize === 'xl' ? 1.65 : stampSize === 'large' ? 1.28 : 1.0;
+    const unit  = Math.max(18, Math.round(w * 0.024)) * sizeScale;
     const tBig  = unit * 1.85;
     const tMed  = unit * 0.98;
     const tSml  = unit * 0.80;
@@ -1510,19 +1592,31 @@ function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
         ty += gap*0.45;
     }
 
-    // Place
+    // Place with map icon
     if (place) {
+        const iconR  = tSml * 0.46;   // icon bounding radius
+        const iconW  = stampMapIcon === 'none' ? 0 : iconR * 2.8;
+        const textX  = tx + iconW;
         ty += tSml;
         ctx.font = fSml;
-        const maxPW = boxW - pad*2 - tSml*0.7;
+        const maxPW = boxW - pad*2 - iconW;
         let pl = place;
         while (pl.length > 3 && ctx.measureText(pl).width > maxPW) pl = pl.slice(0,-1);
         if (pl !== place) pl = pl.trimEnd() + '…';
-        // pin dot
-        ctx.fillStyle = cPin;
-        ctx.beginPath(); ctx.arc(tx+tSml*0.26, ty-tSml*0.3, tSml*0.2, 0, Math.PI*2); ctx.fill();
+
+        // Draw icon
+        ctx.shadowBlur = 0;
+        if (stampMapIcon === 'pin') {
+            drawMapPin(ctx, tx + iconR*1.1, ty - tSml*0.28, iconR, cPin);
+        } else if (stampMapIcon === 'flag') {
+            drawMapFlag(ctx, tx + iconR*0.7, ty + iconR*0.4, iconR*0.7, cPin);
+        } else if (stampMapIcon === 'circle') {
+            drawMapCircle(ctx, tx + iconR*1.1, ty - tSml*0.28, iconR*0.7, cPin);
+        }
+        ctx.shadowColor = shadowCol; ctx.shadowBlur = S==='minimal'?8:3;
+
         ctx.fillStyle = cPlace;
-        ctx.fillText(pl, tx + tSml*0.6, ty);
+        ctx.fillText(pl, textX, ty);
     }
 
     // Coord
