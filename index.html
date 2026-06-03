@@ -105,13 +105,14 @@
 
         /* ── Liveclock overlay on viewfinder ── */
         #live-stamp {
-            position: absolute; bottom: 14px; left: 14px;
+            position: absolute; bottom: 155px; left: 14px;
             z-index: 25; pointer-events: none;
-            color: #fff; font-size: 0.78rem; font-weight: 600;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7);
-            line-height: 1.4; display: none;
+            color: #fff; font-size: 0.8rem; font-weight: 600;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.8);
+            line-height: 1.5; display: block;
         }
-        #live-stamp.visible { display: block; }
+        #live-time { font-size: 0.85rem; letter-spacing: 0.02em; }
+        #live-addr { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; max-width: 240px; }
 
         /* ── Resolution badge ── */
         #res-badge {
@@ -862,11 +863,16 @@
         padding-top: max(env(safe-area-inset-top,0px), 12px);
         pointer-events:none;
     ">
-        <!-- active mode chips (sport/beauty/QR/etc.) -->
+        <!-- active mode chips -->
         <div id="active-chips" style="display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;"></div>
-        <!-- tip button -->
-        <div class="icon-btn" onclick="showRandomTip()" style="pointer-events:auto;flex-shrink:0;" title="Mẹo">
-            <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-400"></i>
+        <!-- stamp + tip buttons always visible -->
+        <div style="display:flex;gap:8px;pointer-events:auto;flex-shrink:0;align-items:center;">
+            <div id="stamp-btn" class="icon-btn btn-active" onclick="toggleStampPicker()" title="Tem thời gian & vị trí" style="width:38px;height:38px;border-color:rgba(251,191,36,0.5);">
+                <i data-lucide="map-pin" style="width:16px;height:16px;color:#fbbf24;"></i>
+            </div>
+            <div class="icon-btn" onclick="showRandomTip()" style="width:38px;height:38px;" title="Mẹo">
+                <i data-lucide="lightbulb" style="width:16px;height:16px;color:#fbbf24;"></i>
+            </div>
         </div>
     </div>
 
@@ -1230,14 +1236,17 @@ let gallery = [];
 let lightboxIndex = 0;
 
 // ─── Stamp / Location ─────────────────────────────────────────────────────────
-/// stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
-let stampMode     = 0;
-let stampStyle    = 'film';    // 'film' | 'glass' | 'minimal' | 'bold'
-let stampPos      = 'br';      // 'tl' | 'tr' | 'bl' | 'br'
-let stampSize     = 'normal';  // 'normal' | 'large' | 'xl'
+// stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
+let stampMode     = 2;          // default ON
+let stampStyle    = 'minimal';  // trong suốt, shadow mạnh
+let stampPos      = 'bl';       // dưới trái
+let stampSize     = 'large';    // cỡ lớn
 let geoCoords     = null;   // { lat, lon }
 let geoAddress    = '';     // full address string
 let geoPlaceName  = '';     // short landmark / street name for stamp
+let geoWard       = '';     // phường / xã
+let geoDistrict   = '';     // quận / huyện
+let geoCity       = '';     // tỉnh / thành phố
 let geoFetching   = false;
 let clockInterval = null;
 
@@ -1249,17 +1258,9 @@ function setStampMode(mode) {
     });
     // update btn highlight
     document.getElementById('stamp-btn').classList.toggle('btn-active', mode > 0);
-    // toggle live overlay
-    const liveStamp = document.getElementById('live-stamp');
-    if (mode === 0) {
-        liveStamp.classList.remove('visible');
-        if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
-    } else {
-        liveStamp.classList.add('visible');
-        tickClock();
-        if (!clockInterval) clockInterval = setInterval(tickClock, 1000);
-        if (mode >= 2 && !geoCoords && !geoFetching) fetchGeo();
-    }
+    // overlay is always visible; just refresh content
+    tickClock();
+    if (mode >= 2 && !geoCoords && !geoFetching) fetchGeo();
     // close picker
     closeStampPicker();
     updateChips();
@@ -1279,19 +1280,40 @@ function stampModeDesc(m) {
 }
 
 function tickClock() {
-    if (stampMode === 0) return;
     const now  = new Date();
     const days = ['CN','T2','T3','T4','T5','T6','T7'];
     const time = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
     const date = `${days[now.getDay()]}  ${now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}`;
-    document.getElementById('live-time').textContent = `${time}  ${date}`;
-    if (stampMode >= 2) {
-        const display = geoPlaceName || geoAddress || (geoFetching ? '📡 Đang lấy vị trí...' : '');
-        const coord   = (stampMode === 3 && geoCoords)
-            ? `\n${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E` : '';
-        document.getElementById('live-addr').textContent = display ? ('⬥ ' + display + coord) : '';
-    } else {
-        document.getElementById('live-addr').textContent = '';
+    const timeEl = document.getElementById('live-time');
+    const addrEl = document.getElementById('live-addr');
+
+    if (stampMode === 0) {
+        if (timeEl) timeEl.textContent = '';
+        if (addrEl) addrEl.textContent = '';
+        return;
+    }
+
+    if (timeEl) timeEl.textContent = `${time}   ${date}`;
+
+    if (stampMode >= 2 && addrEl) {
+        if (geoFetching) {
+            addrEl.textContent = '📡 Đang lấy vị trí...';
+        } else if (geoAddress) {
+            // Build layered address display
+            const lines = [];
+            if (geoPlaceName && geoPlaceName !== geoAddress) lines.push('📍 ' + geoPlaceName);
+            // Phường / Quận / Thành phố on one line
+            const adminParts = [geoWard, geoDistrict, geoCity].filter(Boolean);
+            if (adminParts.length) lines.push('⬥ ' + adminParts.join('  ·  '));
+            if (stampMode === 3 && geoCoords) {
+                lines.push(`🛰 ${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E`);
+            }
+            addrEl.textContent = lines.join('\n');
+        } else {
+            addrEl.textContent = '';
+        }
+    } else if (addrEl) {
+        addrEl.textContent = '';
     }
 }
 
@@ -1320,21 +1342,28 @@ async function fetchGeo() {
             const street    = a.road || a.pedestrian || a.footway || a.path || '';
             const streetStr = street ? streetNum + street : '';
 
-            // Ưu tiên 3: phường/xã → quận/huyện → tỉnh/thành
-            const ward     = a.suburb || a.quarter || a.neighbourhood || a.village || '';
-            const district = a.city_district || a.district || a.county || '';
-            const city     = a.city || a.town || a.municipality || a.state_district || '';
+            // Phường/xã — ưu tiên tên có "Phường"/"Xã" prefix để rõ hơn
+            const rawWard = a.suburb || a.quarter || a.neighbourhood || a.village || a.hamlet || '';
+            // Quận/huyện
+            const rawDistrict = a.city_district || a.district || a.county || '';
+            // Tỉnh/thành phố
+            const rawCity = a.city || a.town || a.municipality || a.state_district || a.state || '';
 
-            // Ghép thông minh: landmark + đường + quận + thành phố
+            // Normalize Vietnamese admin names (Nominatim sometimes returns English)
+            geoWard     = rawWard;
+            geoDistrict = rawDistrict;
+            geoCity     = rawCity;
+
+            // Ghép địa chỉ đầy đủ
             const parts = [];
             if (landmark && landmark !== streetStr) parts.push(landmark);
             if (streetStr) parts.push(streetStr);
-            if (ward && ward !== city)     parts.push(ward);
-            if (district && district !== city) parts.push(district);
-            if (city) parts.push(city);
+            if (geoWard && geoWard !== geoCity)         parts.push(geoWard);
+            if (geoDistrict && geoDistrict !== geoCity) parts.push(geoDistrict);
+            if (geoCity) parts.push(geoCity);
 
-            geoAddress    = parts.filter(Boolean).join(', ');
-            geoPlaceName  = landmark || (streetStr ? streetStr : city) || geoAddress;
+            geoAddress   = parts.filter(Boolean).join(', ');
+            geoPlaceName = landmark || (streetStr ? streetStr : (geoWard || geoCity)) || geoAddress;
         } catch(e) {
             geoAddress   = `${geoCoords.lat.toFixed(5)}°N, ${geoCoords.lon.toFixed(5)}°E`;
             geoPlaceName = geoAddress;
@@ -1459,8 +1488,14 @@ function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
     const dateStr  = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
     const days     = ['CN','T2','T3','T4','T5','T6','T7'];
     const wday     = days[now.getDay()];
-    let   place    = '', coord = '';
-    if (stampMode >= 2) place = geoPlaceName || geoAddress || '';
+    let   place    = '', place2 = '', coord = '';
+    if (stampMode >= 2) {
+        place  = geoPlaceName || '';  // landmark / street (line 1)
+        // Phường · Quận · Thành phố (line 2)
+        const adminParts = [geoWard, geoDistrict, geoCity].filter(Boolean);
+        place2 = adminParts.join(' · ');
+        if (!place && !place2) place = geoAddress || '';
+    }
     if (stampMode === 3 && geoCoords) coord = `${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E`;
 
     // ── Sizes — apply stampSize multiplier ──
@@ -1493,7 +1528,12 @@ function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
     const contentW = Math.max(wHH + wSS + gap*0.4, wDate, wPlace, wCoord);
     const boxW     = contentW + pad * 2;
     let   boxH     = pad * 0.9 + tBig + gap*0.45 + tMed + pad * 0.9;
-    if (place || coord) boxH += gap * 0.5 + (place ? tSml + gap*0.3 : 0) + (coord ? tSml*0.85 + gap*0.25 : 0);
+    if (place || place2 || coord) {
+        boxH += gap * 0.5;
+        if (place)  boxH += tSml + gap*0.25;
+        if (place2) boxH += tSml*0.88 + gap*0.2;
+        if (coord)  boxH += tSml*0.85 + gap*0.25;
+    }
 
     // ── Position ──
     const margin = pad * 0.85;
@@ -1619,9 +1659,21 @@ function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
         ctx.fillText(pl, textX, ty);
     }
 
+    // Place2: Phường · Quận · Thành phố
+    if (place2) {
+        ty += (place ? gap*0.2 : 0) + tSml*0.88;
+        ctx.font = `400 ${tSml*0.88}px -apple-system,BlinkMacSystemFont,sans-serif`;
+        ctx.fillStyle = S==='bold' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.55)';
+        let p2 = place2;
+        const maxP2W = boxW - pad*2 - (stampMapIcon!=='none' ? tSml*0.6 : 0);
+        while (p2.length > 3 && ctx.measureText(p2).width > maxP2W) p2 = p2.slice(0,-1);
+        if (p2 !== place2) p2 = p2.trimEnd() + '…';
+        ctx.fillText(p2, tx + (stampMapIcon!=='none' && !place ? tSml*0.6 : 0), ty);
+    }
+
     // Coord
     if (coord) {
-        ty += (place ? gap*0.3 : 0) + tSml*0.85;
+        ty += gap*0.25 + tSml*0.85;
         ctx.font = fCoord; ctx.fillStyle = cCoord;
         ctx.fillText(coord, tx, ty);
     }
@@ -3058,7 +3110,22 @@ const splashStart = Date.now();
 // ─── Init ──────────────────────────────────────────────────────────────────────
 window.onload = () => {
     updateViewFinder(); startCamera();
-    setTimeout(() => showRandomTip(), 3000);
+    // Start clock immediately and fetch location on load
+    tickClock();
+    clockInterval = setInterval(tickClock, 1000);
+    fetchGeo();
+    // Sync picker UI to defaults
+    document.querySelectorAll('.stamp-option').forEach(el =>
+        el.classList.toggle('selected', parseInt(el.dataset.mode) === stampMode));
+    document.querySelectorAll('[data-style]').forEach(el =>
+        el.classList.toggle('active', el.dataset.style === stampStyle));
+    document.querySelectorAll('[data-pos]').forEach(el =>
+        el.classList.toggle('active', el.dataset.pos === stampPos));
+    document.querySelectorAll('[data-size]').forEach(el =>
+        el.classList.toggle('active', el.dataset.size === stampSize));
+    document.querySelectorAll('[data-mapicon]').forEach(el =>
+        el.classList.toggle('active', el.dataset.mapicon === stampMapIcon));
+    setTimeout(() => showRandomTip(), 4000);
 };
 </script>
 </body>
