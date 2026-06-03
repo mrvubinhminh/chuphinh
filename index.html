@@ -1096,7 +1096,8 @@ let lightboxIndex = 0;
 // stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
 let stampMode     = 0;
 let geoCoords     = null;   // { lat, lon }
-let geoAddress    = '';
+let geoAddress    = '';     // full address string
+let geoPlaceName  = '';     // short landmark / street name for stamp
 let geoFetching   = false;
 let clockInterval = null;
 
@@ -1138,16 +1139,16 @@ function stampModeDesc(m) {
 
 function tickClock() {
     if (stampMode === 0) return;
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
-                  + '  ' + now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
-    document.getElementById('live-time').textContent = timeStr;
+    const now  = new Date();
+    const days = ['CN','T2','T3','T4','T5','T6','T7'];
+    const time = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const date = `${days[now.getDay()]}  ${now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}`;
+    document.getElementById('live-time').textContent = `${time}  ${date}`;
     if (stampMode >= 2) {
-        let addrLine = geoAddress || (geoFetching ? 'Đang lấy vị trí...' : '');
-        if (stampMode === 3 && geoCoords) {
-            addrLine = `${geoCoords.lat.toFixed(5)}, ${geoCoords.lon.toFixed(5)}` + (geoAddress ? '\n' + geoAddress : '');
-        }
-        document.getElementById('live-addr').textContent = addrLine;
+        const display = geoPlaceName || geoAddress || (geoFetching ? '📡 Đang lấy vị trí...' : '');
+        const coord   = (stampMode === 3 && geoCoords)
+            ? `\n${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E` : '';
+        document.getElementById('live-addr').textContent = display ? ('⬥ ' + display + coord) : '';
     } else {
         document.getElementById('live-addr').textContent = '';
     }
@@ -1160,23 +1161,50 @@ async function fetchGeo() {
         geoCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         geoFetching = false;
         try {
-            const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${geoCoords.lat}&lon=${geoCoords.lon}&format=json&accept-language=vi`);
+            // Nominatim với zoom=18 cho chi tiết cao nhất
+            const url  = `https://nominatim.openstreetmap.org/reverse?lat=${geoCoords.lat}&lon=${geoCoords.lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=vi&namedetails=1`;
+            const res  = await fetch(url, { headers:{ 'Accept-Language':'vi' } });
             const data = await res.json();
             const a    = data.address || {};
-            const parts = [
-                a.road || a.pedestrian || a.footway,
-                a.suburb || a.quarter,
-                a.city || a.town || a.village || a.county,
-                a.state
-            ].filter(Boolean);
-            geoAddress = parts.join(', ');
-        } catch(e) { geoAddress = `${geoCoords.lat.toFixed(4)}, ${geoCoords.lon.toFixed(4)}`; }
+            const nd   = data.namedetails || {};
+
+            // Ưu tiên 1: tên địa danh nổi tiếng (quán cà phê, trường, bệnh viện…)
+            const landmark =
+                a.tourism || a.amenity || a.shop || a.office ||
+                a.building || a.leisure || a.historic ||
+                nd['name:vi'] || nd.name || data.name || null;
+
+            // Ưu tiên 2: số nhà + tên đường
+            const streetNum = a.house_number ? `${a.house_number} ` : '';
+            const street    = a.road || a.pedestrian || a.footway || a.path || '';
+            const streetStr = street ? streetNum + street : '';
+
+            // Ưu tiên 3: phường/xã → quận/huyện → tỉnh/thành
+            const ward     = a.suburb || a.quarter || a.neighbourhood || a.village || '';
+            const district = a.city_district || a.district || a.county || '';
+            const city     = a.city || a.town || a.municipality || a.state_district || '';
+
+            // Ghép thông minh: landmark + đường + quận + thành phố
+            const parts = [];
+            if (landmark && landmark !== streetStr) parts.push(landmark);
+            if (streetStr) parts.push(streetStr);
+            if (ward && ward !== city)     parts.push(ward);
+            if (district && district !== city) parts.push(district);
+            if (city) parts.push(city);
+
+            geoAddress    = parts.filter(Boolean).join(', ');
+            geoPlaceName  = landmark || (streetStr ? streetStr : city) || geoAddress;
+        } catch(e) {
+            geoAddress   = `${geoCoords.lat.toFixed(5)}°N, ${geoCoords.lon.toFixed(5)}°E`;
+            geoPlaceName = geoAddress;
+        }
         tickClock();
     }, err => {
-        geoFetching = false;
-        geoAddress = 'Không lấy được vị trí';
+        geoFetching  = false;
+        geoAddress   = 'Không lấy được vị trí';
+        geoPlaceName = '';
         tickClock();
-    }, { timeout: 10000 });
+    }, { timeout: 12000, enableHighAccuracy: true, maximumAge: 30000 });
 }
 
 function toggleStampPicker() {
@@ -1203,48 +1231,141 @@ document.querySelectorAll('.stamp-option').forEach(el => {
     el.addEventListener('click', () => setStampMode(parseInt(el.dataset.mode)));
 });
 
-// ─── Stamp bake-in on canvas ───────────────────────────────────────────────────
+// ─── Stamp bake-in on canvas — Film Camera Style ──────────────────────────────
 function bakeStamp(ctx, w, h) {
     if (stampMode === 0) return;
-    const now    = new Date();
-    const timeStr = now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
-                  + '  ' + now.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
-    let lines = [timeStr];
-    if (stampMode >= 2 && geoAddress) lines.push(geoAddress);
-    if (stampMode === 3 && geoCoords)  lines.push(`${geoCoords.lat.toFixed(5)}, ${geoCoords.lon.toFixed(5)}`);
 
-    const baseFontSize = Math.max(22, Math.round(w * 0.028));
-    const padding      = baseFontSize * 0.8;
-    const lineH        = baseFontSize * 1.5;
-    const font         = `600 ${baseFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const now   = new Date();
+    const HH    = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
+    const SS    = now.toLocaleTimeString('vi-VN', { second:'2-digit' }).replace(/^.*:/, ':');
+    const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+    // weekday short
+    const days  = ['CN','T2','T3','T4','T5','T6','T7'];
+    const wday  = days[now.getDay()];
 
-    // measure AFTER setting font
+    // Build address lines
+    let placeLine = '', coordLine = '';
+    if (stampMode >= 2) {
+        placeLine = geoPlaceName || geoAddress || (geoFetching ? '...' : '');
+    }
+    if (stampMode === 3 && geoCoords) {
+        coordLine = `${geoCoords.lat.toFixed(5)}° N  ${geoCoords.lon.toFixed(5)}° E`;
+    }
+
+    // ── Sizes (responsive to image width) ──
+    const unit   = Math.max(20, Math.round(w * 0.025));   // base unit
+    const tBig   = unit * 1.9;   // large time digits
+    const tMed   = unit * 1.0;   // date / small text
+    const tSml   = unit * 0.82;  // coords / address
+    const pad    = unit * 1.1;
+    const gap    = unit * 0.55;
+
+    const fontBig  = `700 ${tBig}px 'SF Mono', 'Courier New', monospace`;
+    const fontMed  = `500 ${tMed}px -apple-system, sans-serif`;
+    const fontSml  = `400 ${tSml}px -apple-system, sans-serif`;
+
+    // ── Measure all text widths ──
     ctx.save();
-    ctx.font = font;
-    const maxW  = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0) + padding * 2.4;
-    const totalH = lines.length * lineH + padding;
+    ctx.font = fontBig;
+    const wHH   = ctx.measureText(HH).width;
+    const wSS   = ctx.measureText(SS).width;
+    ctx.font = fontMed;
+    const wDate = ctx.measureText(`${wday}  ${dateStr}`).width;
+    ctx.font = fontSml;
+    const wPlace = placeLine  ? ctx.measureText('⬥ ' + placeLine).width  : 0;
+    const wCoord = coordLine  ? ctx.measureText(coordLine).width          : 0;
     ctx.restore();
 
-    // background pill
+    // Block width = max of all rows + padding
+    const contentW = Math.max(wHH + wSS + gap, wDate, wPlace, wCoord);
+    const boxW     = contentW + pad * 2;
+
+    // Block height
+    let boxH = pad + tBig + gap * 0.5 + tMed + pad;   // time + date rows
+    if (placeLine)  boxH += gap * 0.6 + tSml;
+    if (coordLine)  boxH += gap * 0.4 + tSml;
+
+    // ── Position: bottom-right with margin ──
+    const margin = pad * 0.9;
+    const bx = w - boxW - margin;
+    const by = h - boxH - margin;
+
+    // ── Background: semi-transparent dark with subtle gradient ──
     ctx.save();
-    ctx.globalAlpha = 0.68;
-    ctx.fillStyle   = 'rgba(0,0,0,0.85)';
-    const bx = padding * 0.6;
-    const by = h - totalH - padding * 0.8;
-    roundRect(ctx, bx, by, maxW, totalH, baseFontSize * 0.55);
+    const grad = ctx.createLinearGradient(bx, by, bx, by + boxH);
+    grad.addColorStop(0, 'rgba(10,8,4,0.82)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.90)');
+    ctx.fillStyle = grad;
+    roundRect(ctx, bx, by, boxW, boxH, unit * 0.55);
+    ctx.fill();
+
+    // Subtle amber left-border accent
+    ctx.fillStyle = '#f59e0b';
+    roundRect(ctx, bx, by, unit * 0.22, boxH, unit * 0.11);
     ctx.fill();
     ctx.restore();
 
-    // text
+    // ── Draw time: large HH:MM in amber + :SS in dimmer ──
+    const tx = bx + pad;
+    let   ty = by + pad + tBig * 0.88;
+
     ctx.save();
-    ctx.font        = font;
-    ctx.fillStyle   = '#ffffff';
-    ctx.shadowColor = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur  = 5;
-    ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
-    lines.forEach((line, i) => {
-        ctx.fillText(line, bx + padding * 1.0, by + (i + 1) * lineH - padding * 0.15);
-    });
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+
+    ctx.font      = fontBig;
+    ctx.fillStyle = '#f59e0b';                    // amber
+    ctx.fillText(HH, tx, ty);
+
+    ctx.fillStyle = 'rgba(245,158,11,0.55)';       // dimmer seconds
+    ctx.fillText(SS, tx + wHH + gap * 0.3, ty);
+
+    // ── Date row ──
+    ty += gap * 0.5 + tMed;
+    ctx.font      = fontMed;
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText(wday, tx, ty);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText(`  ${dateStr}`, tx + ctx.measureText(wday).width, ty);
+
+    // ── Separator ──
+    if (placeLine || coordLine) {
+        ty += gap * 0.7;
+        ctx.strokeStyle = 'rgba(245,158,11,0.25)';
+        ctx.lineWidth   = Math.max(1, unit * 0.06);
+        ctx.beginPath();
+        ctx.moveTo(tx, ty); ctx.lineTo(bx + boxW - pad, ty);
+        ctx.stroke();
+        ty += gap * 0.5;
+    }
+
+    // ── Place name ──
+    if (placeLine) {
+        ty += tSml;
+        ctx.font = fontSml;
+        // pin dot
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(tx + tSml*0.28, ty - tSml*0.32, tSml*0.22, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.80)';
+        // truncate if too long
+        const maxPlaceW = boxW - pad*2 - tSml*0.7;
+        let place = placeLine;
+        ctx.font = fontSml;
+        while (place.length > 3 && ctx.measureText(place).width > maxPlaceW)
+            place = place.slice(0, -1);
+        if (place !== placeLine) place = place.trimEnd() + '…';
+        ctx.fillText(place, tx + tSml * 0.65, ty);
+    }
+
+    // ── GPS coords ──
+    if (coordLine) {
+        ty += gap * 0.4 + tSml;
+        ctx.font      = `400 ${tSml * 0.88}px 'SF Mono','Courier New',monospace`;
+        ctx.fillStyle = 'rgba(255,255,255,0.38)';
+        ctx.fillText(coordLine, tx, ty);
+    }
+
     ctx.restore();
 }
 
