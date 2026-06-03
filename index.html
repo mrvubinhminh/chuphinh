@@ -547,6 +547,60 @@
         .ocr-btn-rescan{ background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.7); }
         .ocr-btn-close { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); flex:0; min-width:40px; }
 
+        /* ── Live Text Scanner ── */
+        #live-text-canvas {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            z-index:27; pointer-events:auto; display:none;
+        }
+        #live-text-canvas.active { display:block; }
+
+        /* Stability ring — fills up as camera holds still */
+        #stab-ring {
+            position:absolute; top:50%; left:50%;
+            transform:translate(-50%,-50%);
+            z-index:28; pointer-events:none;
+            width:64px; height:64px; display:none;
+        }
+        #stab-ring.active { display:block; }
+        #stab-ring svg { width:100%; height:100%; transform:rotate(-90deg); }
+        #stab-ring circle {
+            fill:none; stroke:#fbbf24; stroke-width:3;
+            stroke-dasharray:169.6; stroke-dashoffset:169.6;
+            stroke-linecap:round; transition:stroke-dashoffset 0.15s linear;
+        }
+
+        /* Live text result toast */
+        #live-text-toast {
+            position:absolute; bottom:155px; left:50%; transform:translateX(-50%);
+            z-index:46; display:none; min-width:260px; max-width:88vw;
+            background:rgba(0,0,0,0.92); backdrop-filter:blur(14px);
+            border:1px solid rgba(56,189,248,0.4); border-radius:18px;
+            padding:14px 16px; box-shadow:0 8px 24px rgba(0,0,0,0.7);
+            animation: liveToastIn 0.25s cubic-bezier(.34,1.4,.64,1);
+        }
+        @keyframes liveToastIn {
+            from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.96)}
+            to  {opacity:1;transform:translateX(-50%) translateY(0)     scale(1)}
+        }
+        #live-text-toast.visible { display:block; }
+        .lt-block-chip {
+            display:inline-block; background:rgba(56,189,248,0.15);
+            border:1px solid rgba(56,189,248,0.3); border-radius:8px;
+            color:#7dd3fc; font-size:0.78rem; padding:5px 10px;
+            margin:3px; cursor:pointer; transition:background 0.15s;
+            word-break:break-all; max-width:100%;
+        }
+        .lt-block-chip:active { background:rgba(56,189,248,0.35); }
+        .lt-block-chip.selected { background:rgba(56,189,248,0.4); color:#fff; border-color:#7dd3fc; }
+        #lt-status-bar {
+            position:absolute; top:68px; left:50%; transform:translateX(-50%);
+            z-index:29; pointer-events:none;
+            background:rgba(0,0,0,0.6); color:rgba(255,255,255,0.6);
+            font-size:0.7rem; padding:4px 12px; border-radius:12px;
+            display:none; white-space:nowrap;
+        }
+        #lt-status-bar.active { display:block; }
+
         /* ── Translation ── */
         #trans-bar {
             display: none; margin-top: 12px;
@@ -630,7 +684,34 @@
             </div>
         </div>
 
-        <!-- (OCR moved to dedicated editor modal) -->
+        <!-- Live Text Scanner elements -->
+        <canvas id="live-text-canvas"></canvas>
+        <div id="stab-ring">
+            <svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="27"/></svg>
+        </div>
+        <div id="lt-status-bar">⚡ Live Text — giữ camera thẳng</div>
+
+        <!-- Live text toast -->
+        <div id="live-text-toast">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">
+                <i data-lucide="type" style="width:15px;height:15px;color:#7dd3fc;flex-shrink:0;"></i>
+                <span style="color:#7dd3fc;font-weight:700;font-size:0.78rem;flex:1;">NHẬN DIỆN TRỰC TIẾP</span>
+                <span id="lt-engine-badge" style="color:rgba(255,255,255,0.3);font-size:0.68rem;"></span>
+                <button onclick="closeLiveToast()" style="background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.4);border-radius:8px;padding:3px 8px;cursor:pointer;font-size:0.8rem;">✕</button>
+            </div>
+            <div id="lt-chips-area" style="display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow-y:auto;"></div>
+            <div id="lt-combined" style="display:none;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.1);">
+                <textarea id="lt-combined-text" spellcheck="false" style="width:100%;min-height:60px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:0.85rem;line-height:1.5;padding:8px 10px;resize:none;outline:none;font-family:inherit;box-sizing:border-box;"></textarea>
+            </div>
+            <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
+                <button onclick="ltCopyAll()" style="flex:1;background:#fbbf24;color:#000;border:none;border-radius:10px;padding:8px;font-size:0.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+                    <i data-lucide="copy" style="width:13px;height:13px;"></i> Sao chép tất cả
+                </button>
+                <button onclick="ltOpenEditor()" style="flex:1;background:rgba(56,189,248,0.18);color:#7dd3fc;border:none;border-radius:10px;padding:8px;font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+                    <i data-lucide="scan-text" style="width:13px;height:13px;"></i> Chỉnh &amp; Dịch
+                </button>
+            </div>
+        </div>
 
         <!-- Resolution badge -->
         <div id="res-badge">SD</div>
@@ -702,8 +783,12 @@
                 <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
             </div>
             <div class="flex gap-2 flex-wrap justify-end">
-                <!-- OCR -->
-                <div id="ocr-btn" class="icon-btn" onclick="toggleOcrMode()" title="Quét văn bản tiếng Việt (OCR)">
+                <!-- Live Text (nhanh nhất) -->
+                <div id="live-text-btn" class="icon-btn" onclick="toggleLiveText()" title="Live Text — quét chữ trực tiếp siêu nhanh">
+                    <i data-lucide="type" class="w-5 h-5"></i>
+                </div>
+                <!-- OCR post-capture -->
+                <div id="ocr-btn" class="icon-btn" onclick="toggleOcrMode()" title="Quét văn bản từ ảnh đã chụp">
                     <i data-lucide="scan-text" class="w-5 h-5"></i>
                 </div>
                 <!-- QR Scanner -->
@@ -2204,6 +2289,306 @@ function toggleOcrMode() {
     openOcrEditor(capturedDataUrl);
 }
 
+
+// ─── Live Text Scanner ────────────────────────────────────────────────────────
+// Priority: 1) Shape Detection API (native, instant)
+//           2) Tesseract.js (fallback, loaded lazily)
+let ltActive        = false;
+let ltRafId         = null;
+let ltLastScan      = 0;
+let ltPrevFrameData = null;   // for motion detection
+let ltStabProgress  = 0;      // 0–1, filled as camera holds still
+let ltStabTimer     = null;
+let ltBlocks        = [];     // last detected text blocks [{text, bbox}]
+let ltSelectedText  = '';
+let ltTesseractReady= false;
+let ltUseNative     = false;  // true when TextDetector supported
+let ltTextDetector  = null;
+let ltScanInterval  = 250;    // ms between scans (adaptive)
+let ltCapturedForEditor = null;
+
+const STAB_THRESHOLD = 4;     // avg pixel diff 0-255 below this = stable
+const STAB_HOLD_MS   = 600;   // hold this long before auto-scan
+const LT_SAMPLE_W    = 320;   // downsample width for motion check
+
+function toggleLiveText() {
+    ltActive = !ltActive;
+    document.getElementById('live-text-btn').classList.toggle('btn-active', ltActive);
+
+    if (ltActive) {
+        // detect engine
+        ltUseNative = typeof TextDetector !== 'undefined';
+        if (ltUseNative) {
+            try { ltTextDetector = new TextDetector(); } catch(e) { ltUseNative = false; }
+        }
+        document.getElementById('lt-engine-badge').textContent = ltUseNative ? '⚡ Native' : '🔧 Tesseract';
+        document.getElementById('live-text-canvas').classList.add('active');
+        document.getElementById('stab-ring').classList.add('active');
+        document.getElementById('lt-status-bar').classList.add('active');
+        ltPrevFrameData = null; ltStabProgress = 0;
+        requestAnimationFrame(ltLoop);
+        showGuidanceMsgs(
+            '<i data-lucide="type" class="w-4 h-4 text-blue-400"></i> Live Text',
+            ltUseNative
+                ? "<b>⚡ Native TextDetector</b> — giữ camera vào văn bản, chữ tự hiện. Tap vào khối chữ để chọn."
+                : "<b>Tesseract fallback</b> — giữ camera thẳng ~0.6 giây, app tự quét.",
+            8000
+        );
+        if (!ltUseNative && !ocrWorker) initOcrWorker().then(() => { ltTesseractReady = true; });
+        else if (!ltUseNative) ltTesseractReady = !!ocrWorker;
+    } else {
+        cancelAnimationFrame(ltRafId); ltRafId = null;
+        clearTimeout(ltStabTimer);
+        document.getElementById('live-text-canvas').classList.remove('active');
+        document.getElementById('stab-ring').classList.remove('active');
+        document.getElementById('lt-status-bar').classList.remove('active');
+        document.getElementById('live-text-toast').classList.remove('visible');
+        const cvs = document.getElementById('live-text-canvas');
+        cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
+    }
+}
+
+// ── Main loop ──────────────────────────────────────────────────────────────────
+function ltLoop(ts) {
+    if (!ltActive) return;
+    ltRafId = requestAnimationFrame(ltLoop);
+    if (ts - ltLastScan < ltScanInterval) return;
+    ltLastScan = ts;
+    if (!videoElement.videoWidth) return;
+
+    // 1. Grab small frame for motion detection
+    const sc = document.createElement('canvas');
+    sc.width  = LT_SAMPLE_W;
+    sc.height = Math.round(videoElement.videoHeight * LT_SAMPLE_W / videoElement.videoWidth);
+    sc.getContext('2d').drawImage(videoElement, 0, 0, sc.width, sc.height);
+    const frameData = sc.getContext('2d').getImageData(0, 0, sc.width, sc.height).data;
+
+    const motion = ltPrevFrameData ? ltAvgDiff(frameData, ltPrevFrameData) : 999;
+    ltPrevFrameData = frameData;
+    const stable = motion < STAB_THRESHOLD;
+
+    updateStabRing(stable ? Math.min(ltStabProgress + 0.12, 1) : Math.max(ltStabProgress - 0.25, 0));
+
+    if (stable) {
+        clearTimeout(ltStabTimer);
+        ltStabTimer = setTimeout(() => { if (ltActive) ltRunScan(); }, STAB_HOLD_MS);
+    } else {
+        clearTimeout(ltStabTimer);
+        updateStabLabel('Giữ camera thẳng...');
+    }
+}
+
+function ltAvgDiff(a, b) {
+    let sum = 0, n = 0;
+    for (let i = 0; i < a.length; i += 20) { // sample every 5th pixel
+        sum += Math.abs(a[i] - b[i]);
+        n++;
+    }
+    return sum / n;
+}
+
+function updateStabRing(p) {
+    ltStabProgress = p;
+    const circ = document.querySelector('#stab-ring circle');
+    if (!circ) return;
+    const total = 169.6;
+    circ.style.strokeDashoffset = (total * (1 - p)).toFixed(1);
+    circ.style.stroke = p > 0.8 ? '#34d399' : '#fbbf24';
+}
+
+function updateStabLabel(t) {
+    const el = document.getElementById('lt-status-bar'); if(el) el.textContent = t;
+}
+
+// ── Run scan ───────────────────────────────────────────────────────────────────
+async function ltRunScan() {
+    if (!ltActive || !videoElement.videoWidth) return;
+    updateStabLabel('Đang nhận diện...');
+
+    const vfCvs = document.getElementById('live-text-canvas');
+    vfCvs.width  = viewFinder.offsetWidth;
+    vfCvs.height = viewFinder.offsetHeight;
+
+    if (ltUseNative) {
+        await ltScanNative(vfCvs);
+    } else {
+        await ltScanTesseract(vfCvs);
+    }
+}
+
+// ── Path 1: Shape Detection API (native, ~5–30ms) ─────────────────────────────
+async function ltScanNative(vfCvs) {
+    try {
+        const blocks = await ltTextDetector.detect(videoElement);
+        if (!blocks.length) { updateStabLabel('Không thấy chữ — hướng lại camera'); return; }
+
+        // Map video coords → viewfinder display coords
+        const vW = videoElement.videoWidth, vH = videoElement.videoHeight;
+        const dW = vfCvs.width, dH = vfCvs.height;
+        const scaleX = dW / vW, scaleY = dH / vH;
+
+        ltBlocks = blocks.map(b => ({
+            text: b.rawValue,
+            box:  {
+                x: b.boundingBox.x * scaleX,
+                y: b.boundingBox.y * scaleY,
+                w: b.boundingBox.width  * scaleX,
+                h: b.boundingBox.height * scaleY
+            }
+        }));
+
+        drawLtBoxes(vfCvs, ltBlocks);
+        showLtToast(ltBlocks);
+        updateStabLabel(`✓ ${ltBlocks.length} khối chữ — tap để chọn`);
+        ltScanInterval = 400; // slow down after success
+    } catch(e) {
+        ltUseNative = false; // API failed, fall through to Tesseract
+        await ltScanTesseract(vfCvs);
+    }
+}
+
+// ── Path 2: Tesseract fallback (300–800ms) ────────────────────────────────────
+async function ltScanTesseract(vfCvs) {
+    if (!ocrWorker) { updateStabLabel('Đang tải engine OCR...'); return; }
+
+    // Capture frame at reasonable res
+    const SCAN_W = 960;
+    const ratio  = SCAN_W / videoElement.videoWidth;
+    const scanW  = SCAN_W, scanH = Math.round(videoElement.videoHeight * ratio);
+    const tmpCvs = document.createElement('canvas');
+    tmpCvs.width = scanW; tmpCvs.height = scanH;
+    const ctx = tmpCvs.getContext('2d');
+    ctx.drawImage(videoElement, 0, 0, scanW, scanH);
+    unsharpMask(tmpCvs, 0.4, 0.8, 3);
+
+    // Capture for editor use
+    ltCapturedForEditor = tmpCvs.toDataURL('image/jpeg', 0.9);
+
+    try {
+        const { data } = await ocrWorker.recognize(tmpCvs);
+        if (!data.words || !data.words.length) {
+            updateStabLabel('Không thấy chữ — hướng lại'); return;
+        }
+
+        // Group words into lines
+        const lines = {};
+        data.words.forEach(w => {
+            if (w.confidence < 30) return;
+            const lineKey = Math.round(w.bbox.y0 / 20) * 20;
+            if (!lines[lineKey]) lines[lineKey] = [];
+            lines[lineKey].push(w);
+        });
+
+        const dW = vfCvs.width, dH = vfCvs.height;
+        const sx = dW / scanW, sy = dH / scanH;
+
+        ltBlocks = Object.values(lines).map(words => {
+            const text = words.map(w => w.text).join(' ').trim();
+            const x0 = Math.min(...words.map(w=>w.bbox.x0));
+            const y0 = Math.min(...words.map(w=>w.bbox.y0));
+            const x1 = Math.max(...words.map(w=>w.bbox.x1));
+            const y1 = Math.max(...words.map(w=>w.bbox.y1));
+            return { text, box:{x:x0*sx, y:y0*sy, w:(x1-x0)*sx, h:(y1-y0)*sy} };
+        }).filter(b => b.text.length > 1);
+
+        drawLtBoxes(vfCvs, ltBlocks);
+        showLtToast(ltBlocks);
+        updateStabLabel(`✓ ${ltBlocks.length} dòng — tap để chọn`);
+        ltScanInterval = 800;
+    } catch(e) { updateStabLabel('Lỗi nhận diện — thử lại'); }
+}
+
+// ── Draw bounding boxes ────────────────────────────────────────────────────────
+function drawLtBoxes(canvas, blocks) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    blocks.forEach((b, i) => {
+        const { x, y, w, h } = b.box;
+        ctx.strokeStyle = 'rgba(56,189,248,0.85)';
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([]);
+        ctx.strokeRect(x, y, w, h);
+        // subtle fill
+        ctx.fillStyle = 'rgba(56,189,248,0.08)';
+        ctx.fillRect(x, y, w, h);
+    });
+}
+
+// Tap on canvas to select block
+document.getElementById('live-text-canvas').addEventListener('click', (e) => {
+    if (!ltActive || !ltBlocks.length) return;
+    const r = e.target.getBoundingClientRect();
+    const tx = e.clientX - r.left, ty = e.clientY - r.top;
+    const hit = ltBlocks.find(b => tx>=b.box.x && tx<=b.box.x+b.box.w && ty>=b.box.y && ty<=b.box.y+b.box.h);
+    if (hit) ltSelectBlock(hit.text);
+});
+
+function ltSelectBlock(text) {
+    ltSelectedText = text;
+    document.querySelectorAll('.lt-block-chip').forEach(c => {
+        c.classList.toggle('selected', c.dataset.text === text);
+    });
+    const combined = document.getElementById('lt-combined');
+    const ta = document.getElementById('lt-combined-text');
+    combined.style.display = 'block';
+    ta.value = text;
+    if (navigator.vibrate) navigator.vibrate(20);
+}
+
+// ── Toast UI ───────────────────────────────────────────────────────────────────
+function showLtToast(blocks) {
+    const area = document.getElementById('lt-chips-area');
+    area.innerHTML = '';
+    blocks.forEach(b => {
+        const chip = document.createElement('div');
+        chip.className = 'lt-block-chip';
+        chip.dataset.text = b.text;
+        chip.textContent  = b.text;
+        chip.onclick = () => ltSelectBlock(b.text);
+        area.appendChild(chip);
+    });
+    document.getElementById('live-text-toast').classList.add('visible');
+    document.getElementById('lt-combined').style.display = 'none';
+    lucide.createIcons();
+    if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function closeLiveToast() {
+    document.getElementById('live-text-toast').classList.remove('visible');
+    document.getElementById('live-text-canvas').getContext('2d')
+        .clearRect(0, 0, document.getElementById('live-text-canvas').width, document.getElementById('live-text-canvas').height);
+    ltBlocks = [];
+    ltScanInterval = 250; // resume scanning
+}
+
+async function ltCopyAll() {
+    const all = ltBlocks.map(b=>b.text).join('\n');
+    if (!all) return;
+    try {
+        await navigator.clipboard.writeText(all);
+        const btn = event.target.closest('button'), orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="width:13px;height:13px;"></i> Đã sao chép!';
+        lucide.createIcons();
+        setTimeout(()=>{btn.innerHTML=orig;lucide.createIcons();}, 1800);
+        if (navigator.vibrate) navigator.vibrate(30);
+    } catch(e) {}
+}
+
+function ltOpenEditor() {
+    // Use current captured frame (Tesseract) or take a snapshot now (native)
+    const src = ltCapturedForEditor || capturedDataUrl;
+    if (!src) {
+        // Take snapshot now
+        const snapCvs = document.createElement('canvas');
+        snapCvs.width  = videoElement.videoWidth;
+        snapCvs.height = videoElement.videoHeight;
+        snapCvs.getContext('2d').drawImage(videoElement, 0, 0);
+        openOcrEditor(snapCvs.toDataURL('image/jpeg', 0.95));
+    } else {
+        openOcrEditor(src);
+    }
+    closeLiveToast();
+}
 
 // ─── Splash dismiss ───────────────────────────────────────────────────────────
 function dismissSplash() {
