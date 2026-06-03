@@ -633,27 +633,35 @@ function bakeStamp(ctx, w, h) {
 
     const baseFontSize = Math.max(22, Math.round(w * 0.028));
     const padding      = baseFontSize * 0.8;
-    const lineH        = baseFontSize * 1.45;
-    const totalH       = lines.length * lineH + padding;
-    const maxW         = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0) + padding * 2;
+    const lineH        = baseFontSize * 1.5;
+    const font         = `600 ${baseFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+
+    // measure AFTER setting font
+    ctx.save();
+    ctx.font = font;
+    const maxW  = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0) + padding * 2.4;
+    const totalH = lines.length * lineH + padding;
+    ctx.restore();
 
     // background pill
     ctx.save();
-    ctx.globalAlpha = 0.62;
-    ctx.fillStyle   = '#000';
-    const bx = padding * 0.5, by = h - totalH - padding * 0.5;
-    roundRect(ctx, bx, by, maxW, totalH, baseFontSize * 0.5);
+    ctx.globalAlpha = 0.68;
+    ctx.fillStyle   = 'rgba(0,0,0,0.85)';
+    const bx = padding * 0.6;
+    const by = h - totalH - padding * 0.8;
+    roundRect(ctx, bx, by, maxW, totalH, baseFontSize * 0.55);
     ctx.fill();
     ctx.restore();
 
     // text
     ctx.save();
-    ctx.font         = `600 ${baseFontSize}px -apple-system, sans-serif`;
-    ctx.fillStyle    = '#ffffff';
-    ctx.shadowColor  = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur   = 4;
+    ctx.font        = font;
+    ctx.fillStyle   = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur  = 5;
+    ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
     lines.forEach((line, i) => {
-        ctx.fillText(line, padding * 1.2, h - totalH - padding * 0.1 + (i + 1) * lineH);
+        ctx.fillText(line, bx + padding * 1.0, by + (i + 1) * lineH - padding * 0.15);
     });
     ctx.restore();
 }
