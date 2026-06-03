@@ -118,6 +118,25 @@
         }
         #live-stamp.visible { display: block; }
 
+        /* ── Resolution badge ── */
+        #res-badge {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55); color: #fbbf24;
+            font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 12px;
+            z-index: 32; pointer-events: none; letter-spacing: 0.06em;
+            opacity: 0; transition: opacity 0.4s;
+        }
+        #res-badge.visible { opacity: 1; }
+
+        /* ── Beauty level badge on viewfinder ── */
+        #beauty-live-badge {
+            position: absolute; top: 10px; right: 10px;
+            background: rgba(251,191,36,0.18); border: 1px solid rgba(251,191,36,0.5);
+            color: #fbbf24; font-size: 0.7rem; font-weight: 800;
+            padding: 3px 9px; border-radius: 12px; z-index: 32;
+            pointer-events: none; display: none; letter-spacing: 0.05em;
+        }
+
         /* ── Stamp mode picker ── */
         #stamp-picker {
             display: none; position: absolute; top: 70px; right: 14px; z-index: 35;
@@ -245,6 +264,11 @@
         <div id="focus-ring"></div>
         <div id="zoom-indicator">1.0×</div>
 
+        <!-- Resolution badge -->
+        <div id="res-badge">SD</div>
+        <!-- Beauty live badge -->
+        <div id="beauty-live-badge">✨ BEAUTY ×1</div>
+
         <!-- Live timestamp / address overlay -->
         <div id="live-stamp">
             <div id="live-time"></div>
@@ -311,11 +335,13 @@
                 <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
             </div>
             <div class="flex gap-2 flex-wrap justify-end">
+                <!-- Resolution picker -->
+                <div id="res-btn" class="text-btn" onclick="cycleResolution()" title="Độ phân giải xuất ảnh">SD</div>
                 <!-- Stamp button -->
                 <div id="stamp-btn" class="icon-btn" onclick="toggleStampPicker()" title="Tem địa chỉ & giờ">
                     <i data-lucide="map-pin" class="w-5 h-5"></i>
                 </div>
-                <div id="beauty-btn" class="icon-btn" onclick="toggleBeautyMode()" title="Làm đẹp">
+                <div id="beauty-btn" class="icon-btn" onclick="cycleBeautyMode()" title="Làm đẹp (nhấn nhiều lần)">
                     <i data-lucide="sparkles" class="w-5 h-5"></i>
                 </div>
                 <div id="depth-btn" class="icon-btn" onclick="toggleDepthMode()" title="Xóa phông">
@@ -442,8 +468,36 @@ let capturedDataUrl    = "";
 let capturedBlob       = null;
 let guidanceTimeout    = null;
 let isDepthMode        = false;
-let isBeautyMode       = false;
+let beautyLevel        = 0;       // 0=off, 1=×1, 2=×2, 3=×4
 let stampPickerOpen    = false;
+
+// ─── Resolution ───────────────────────────────────────────────────────────────
+// 0=SD(native), 1=2K(2560px wide), 2=4K(3840px wide)
+let resolutionMode = 0;
+const resLabels    = ['SD','2K','4K'];
+const resMaxWidth  = [0, 2560, 3840]; // 0 = native (no upscale)
+let resBadgeTimer  = null;
+
+function cycleResolution() {
+    resolutionMode = (resolutionMode + 1) % 3;
+    const label = resLabels[resolutionMode];
+    document.getElementById('res-btn').textContent = label;
+    document.getElementById('res-btn').classList.toggle('btn-active', resolutionMode > 0);
+    // show brief badge on viewfinder
+    const badge = document.getElementById('res-badge');
+    badge.textContent = resolutionMode === 0 ? 'SD — Độ phân giải gốc'
+                      : resolutionMode === 1 ? '2K — 2560 px'
+                      :                        '4K — 3840 px';
+    badge.classList.add('visible');
+    clearTimeout(resBadgeTimer);
+    resBadgeTimer = setTimeout(() => badge.classList.remove('visible'), 2200);
+    const descs = [
+        "<b>SD (Gốc):</b> Dùng độ phân giải cảm biến thực — file nhỏ, chia sẻ nhanh.",
+        "<b>2K (2560px):</b> Nội suy lên 2K — chi tiết sắc nét hơn, phù hợp in cỡ A4.",
+        "<b>4K (3840px):</b> Nội suy lên 4K — chất lượng tối đa, phù hợp in lớn hoặc edit sau."
+    ];
+    showGuidanceMsgs('<i data-lucide="image" class="w-4 h-4 text-yellow-400"></i> Độ Phân Giải Xuất Ảnh', descs[resolutionMode]);
+}
 
 const ratios = [
     { name:'FULL', value:'full' },
@@ -748,12 +802,39 @@ function toggleDepthMode() {
     showGuidanceMsgs('<i data-lucide="aperture" class="w-4 h-4 text-yellow-400"></i> Chân Dung',
         isDepthMode ? "<b>Xóa Phông:</b> Giữ điện thoại <b>DỌC</b>, khuôn mặt vào <b>TRUNG TÂM</b>." : "Đã tắt hiệu ứng chiều sâu.");
 }
-function toggleBeautyMode() {
-    isBeautyMode = !isBeautyMode;
-    document.getElementById('beauty-btn').classList.toggle('btn-active', isBeautyMode);
-    videoElement.style.filter = isBeautyMode ? "brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)" : "none";
-    showGuidanceMsgs('<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp Tự Nhiên',
-        isBeautyMode ? "<b>Sáng & Mịn Da:</b> Nâng tone, làm mờ khuyết điểm, sắc hồng tự nhiên." : "Đã tắt chế độ làm đẹp.");
+// Beauty level presets: [brightness, contrast, saturate, sepia, hueRotate]
+const beautyPresets = [
+    null,                                           // 0 = off
+    { br:1.08, ct:1.04, sat:1.08, sep:0.04, hue:0 },  // ×1 nhẹ
+    { br:1.14, ct:1.02, sat:1.14, sep:0.07, hue:3 },  // ×2 trung bình
+    { br:1.22, ct:0.97, sat:1.22, sep:0.10, hue:6 },  // ×4 mạnh
+];
+const beautyBloomAlpha = [0, 0.32, 0.50, 0.68]; // bloom blend strength per level
+
+function cycleBeautyMode() {
+    beautyLevel = (beautyLevel + 1) % 4;
+    const btn   = document.getElementById('beauty-btn');
+    const badge = document.getElementById('beauty-live-badge');
+    if (beautyLevel === 0) {
+        btn.classList.remove('btn-active');
+        videoElement.style.filter = 'none';
+        badge.style.display = 'none';
+        showGuidanceMsgs('<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp', "Đã tắt chế độ làm đẹp.");
+    } else {
+        btn.classList.add('btn-active');
+        const p = beautyPresets[beautyLevel];
+        videoElement.style.filter = `brightness(${p.br}) contrast(${p.ct}) saturate(${p.sat}) sepia(${p.sep}) hue-rotate(${p.hue}deg)`;
+        const labels = ['','×1 Nhẹ','×2 Trung Bình','×4 Mạnh'];
+        badge.textContent = `✨ BEAUTY ${labels[beautyLevel]}`;
+        badge.style.display = 'block';
+        const descs = [
+            '',
+            "<b>Beauty ×1 Nhẹ:</b> Nâng sáng nhẹ, làm mịn khuyết điểm nhỏ — tự nhiên nhất.",
+            "<b>Beauty ×2 Trung Bình:</b> Bloom mạnh hơn, tông da hồng ấm — lý tưởng selfie.",
+            "<b>Beauty ×4 Mạnh:</b> Làm mịn tối đa, da căng bóng — phù hợp ảnh sự kiện, studio."
+        ];
+        showGuidanceMsgs('<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp Tự Nhiên', descs[beautyLevel]);
+    }
 }
 function cycleRatio() {
     currentRatioIndex = (currentRatioIndex + 1) % ratios.length;
@@ -786,7 +867,14 @@ async function startCamera() {
     videoElement.srcObject = stream;
     videoElement.style.transform = currentFacingMode==='user' ? 'scaleX(-1)' : 'scaleX(1)';
     videoElement.play().catch(()=>{});
-    videoElement.onloadedmetadata = () => { updateViewFinder(); currentZoom=1; getZoomCapabilities(); };
+    videoElement.onloadedmetadata = () => {
+        updateViewFinder(); currentZoom=1; getZoomCapabilities();
+        // re-apply beauty live filter after camera switch
+        if (beautyLevel > 0) {
+            const p = beautyPresets[beautyLevel];
+            videoElement.style.filter = `brightness(${p.br}) contrast(${p.ct}) saturate(${p.sat}) sepia(${p.sep}) hue-rotate(${p.hue}deg)`;
+        }
+    };
 }
 function switchCamera() { currentFacingMode = currentFacingMode==='environment'?'user':'environment'; startCamera(); }
 function updateViewFinder() {
@@ -815,35 +903,83 @@ function takePhoto() {
     if (vidR>vfR) { cropH=vidH; cropW=vidH*vfR; sx=(vidW-cropW)/2; sy=0; }
     else           { cropW=vidW; cropH=vidW/vfR; sx=0; sy=(vidH-cropH)/2; }
 
+    // ── Step 1: draw raw frame at native crop resolution ──────────────────────
     canvasElement.width=cropW; canvasElement.height=cropH;
     const ctx = canvasElement.getContext('2d');
+    ctx.save();
     if (currentFacingMode==='user') { ctx.translate(cropW,0); ctx.scale(-1,1); }
-    ctx.filter = isBeautyMode ? 'brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)' : 'none';
+
+    // Apply beauty colour filter at draw time
+    if (beautyLevel > 0) {
+        const p = beautyPresets[beautyLevel];
+        ctx.filter = `brightness(${p.br}) contrast(${p.ct}) saturate(${p.sat}) sepia(${p.sep}) hue-rotate(${p.hue}deg)`;
+    } else {
+        ctx.filter = 'none';
+    }
     ctx.drawImage(videoElement, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
     ctx.filter = 'none';
+    ctx.restore(); // reset mirror transform
 
-    if (isBeautyMode) {
+    // ── Step 2: Bloom / softening pass (level-dependent) ──────────────────────
+    if (beautyLevel > 0) {
+        const blurFactor = [0, 0.004, 0.008, 0.014][beautyLevel];
+        const bloomAlpha = beautyBloomAlpha[beautyLevel];
         const bc=document.createElement('canvas'); bc.width=cropW; bc.height=cropH;
-        const bx=bc.getContext('2d'); bx.filter=`blur(${Math.max(cropW,cropH)*0.005}px)`;
+        const bx=bc.getContext('2d');
+        bx.filter=`blur(${Math.max(cropW,cropH)*blurFactor}px)`;
         bx.drawImage(canvasElement,0,0);
-        ctx.globalAlpha=0.35; ctx.globalCompositeOperation='screen'; ctx.drawImage(bc,0,0);
+        ctx.globalAlpha=bloomAlpha; ctx.globalCompositeOperation='screen'; ctx.drawImage(bc,0,0);
         ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+
+        // Level ×4: add warm skin-tone overlay for porcelain effect
+        if (beautyLevel === 3) {
+            const sk=document.createElement('canvas'); sk.width=cropW; sk.height=cropH;
+            const sx2=sk.getContext('2d');
+            sx2.filter=`blur(${Math.max(cropW,cropH)*0.025}px)`;
+            sx2.drawImage(canvasElement,0,0); sx2.filter='none';
+            ctx.globalAlpha=0.12; ctx.globalCompositeOperation='soft-light'; ctx.drawImage(sk,0,0);
+            ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+        }
     }
+
+    // ── Step 3: Depth (fake bokeh) ─────────────────────────────────────────────
     if (isDepthMode) {
         const oc=document.createElement('canvas'); oc.width=cropW; oc.height=cropH;
         const ox=oc.getContext('2d'); ox.filter=`blur(${Math.max(cropW,cropH)*0.015}px)`;
         ox.drawImage(videoElement, sx, sy, cropW, cropH, 0, 0, cropW, cropH); ox.filter='none';
         ox.globalCompositeOperation='destination-out';
-        const g=ox.createRadialGradient(cropW/2,cropH/2,Math.min(cropW,cropH)*0.25,cropW/2,cropH/2,Math.min(cropW,cropH)*0.75);
-        g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
-        ox.fillStyle=g; ox.fillRect(0,0,cropW,cropH); ctx.drawImage(oc,0,0);
+        const grd=ox.createRadialGradient(cropW/2,cropH/2,Math.min(cropW,cropH)*0.25,cropW/2,cropH/2,Math.min(cropW,cropH)*0.75);
+        grd.addColorStop(0,'rgba(0,0,0,1)'); grd.addColorStop(1,'rgba(0,0,0,0)');
+        ox.fillStyle=grd; ox.fillRect(0,0,cropW,cropH); ctx.drawImage(oc,0,0);
     }
 
-    // bake stamp
-    bakeStamp(ctx, cropW, cropH);
+    // ── Step 4: Upscale to 2K / 4K if requested ───────────────────────────────
+    let finalCanvas = canvasElement;
+    if (resolutionMode > 0) {
+        const targetW = resMaxWidth[resolutionMode];
+        if (cropW < targetW) {                 // only upscale, never downscale
+            const scale  = targetW / cropW;
+            const hiW    = Math.round(cropW * scale);
+            const hiH    = Math.round(cropH * scale);
+            const hiCanvas = document.createElement('canvas');
+            hiCanvas.width = hiW; hiCanvas.height = hiH;
+            const hiCtx = hiCanvas.getContext('2d');
+            hiCtx.imageSmoothingEnabled  = true;
+            hiCtx.imageSmoothingQuality  = 'high';
+            hiCtx.drawImage(canvasElement, 0, 0, hiW, hiH);
+            // re-bake stamp at hi-res coordinates
+            bakeStamp(hiCtx, hiW, hiH);
+            finalCanvas = hiCanvas;
+        } else {
+            bakeStamp(ctx, cropW, cropH);
+        }
+    } else {
+        // ── Step 5: Bake stamp at native res ──────────────────────────────────
+        bakeStamp(ctx, cropW, cropH);
+    }
 
-    const dataUrl = canvasElement.toDataURL('image/jpeg', 0.95);
-    canvasElement.toBlob(blob => {
+    const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.95);
+    finalCanvas.toBlob(blob => {
         const entry = { dataUrl, blob, ts: new Date() };
         gallery.unshift(entry);
         capturedDataUrl = dataUrl;
