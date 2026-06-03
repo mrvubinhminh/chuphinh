@@ -6,6 +6,9 @@
     <title>Golden Ratio Camera Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Tesseract.js — tải lazy khi người dùng bật OCR -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script> -->
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -245,6 +248,304 @@
             justify-content: center; align-items: center; color: rgba(255,255,255,0.3);
             gap: 12px;
         }
+
+        /* ── Splash Screen ── */
+        #splash {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            /* fallback for browsers without dvh */
+            height: 100vh;
+            /* dynamic viewport — hides behind browser chrome on mobile */
+            height: 100dvh;
+            z-index: 200;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 0;
+            background: #000;
+            /* safe area padding for notch/home-bar phones */
+            padding: env(safe-area-inset-top, 0px)
+                     env(safe-area-inset-right, 0px)
+                     env(safe-area-inset-bottom, 0px)
+                     env(safe-area-inset-left, 0px);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        #splash-bg {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: radial-gradient(ellipse at 50% 42%, #1c1608 0%, #000 68%);
+            opacity: 0;
+            animation: splashBgIn 0.6s 0.1s ease forwards;
+        }
+        @keyframes splashBgIn { to { opacity: 1; } }
+
+        #splash-shutter {
+            position: relative; z-index: 1;
+            /* responsive: 28vw but capped 90px–130px */
+            width:  clamp(90px, 28vw, 130px);
+            height: clamp(90px, 28vw, 130px);
+            flex-shrink: 0;
+            opacity: 0;
+            animation: splashShutterIn 0.5s 0.25s cubic-bezier(.34,1.4,.64,1) forwards;
+        }
+        @keyframes splashShutterIn {
+            from { opacity: 0; transform: scale(0.6) rotate(-30deg); }
+            to   { opacity: 1; transform: scale(1)   rotate(0deg); }
+        }
+        #splash-arc {
+            animation: splashArc 1.1s 0.5s cubic-bezier(.4,0,.2,1) forwards;
+        }
+        @keyframes splashArc {
+            from { stroke-dashoffset: 351.86; }
+            to   { stroke-dashoffset: 0; }
+        }
+        #splash-blades {
+            animation: splashBlades 0.35s 1.5s ease forwards;
+        }
+        @keyframes splashBlades {
+            from { opacity: 0; }
+            50%  { opacity: 1; }
+            to   { opacity: 0; }
+        }
+
+        #splash-logo {
+            position: relative; z-index: 1;
+            display: flex; align-items: baseline; gap: 1px;
+            margin-top: clamp(14px, 4vw, 22px);
+            /* responsive font: 10vw but 2rem–2.8rem */
+            font-size: clamp(2rem, 10vw, 2.8rem);
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            /* prevent overflow */
+            max-width: 90vw; overflow: hidden;
+        }
+        #splash-logo span {
+            opacity: 0; transform: translateY(12px);
+            display: inline-block;
+            animation: splashLetterIn 0.4s cubic-bezier(.34,1.4,.64,1) forwards;
+        }
+        #splash-v { animation-delay: 0.85s !important; }
+        #splash-t { animation-delay: 0.97s !important; }
+        #splash-l { animation-delay: 1.09s !important; color: #fbbf24; }
+        @keyframes splashLetterIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        #splash-tagline {
+            position: relative; z-index: 1;
+            margin-top: 8px;
+            color: rgba(255,255,255,0.32);
+            font-size: clamp(0.6rem, 2.5vw, 0.72rem);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            opacity: 0;
+            animation: splashFadeIn 0.5s 1.3s ease forwards;
+        }
+        @keyframes splashFadeIn { to { opacity: 1; } }
+
+        #splash-dot-row {
+            position: relative; z-index: 1;
+            display: flex; gap: 6px;
+            margin-top: clamp(20px, 6vw, 36px);
+            opacity: 0;
+            animation: splashFadeIn 0.4s 1.5s ease forwards;
+        }
+        .splash-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: rgba(251,191,36,0.35);
+            animation: splashPulse 1s ease-in-out infinite;
+        }
+        .splash-dot:nth-child(1) { animation-delay: 0s; }
+        .splash-dot:nth-child(2) { animation-delay: 0.2s; }
+        .splash-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes splashPulse {
+            0%,100% { background: rgba(251,191,36,0.2); transform: scale(0.8); }
+            50%      { background: rgba(251,191,36,0.8); transform: scale(1.15); }
+        }
+
+        /* Exit animation */
+        #splash.hiding {
+            animation: splashOut 0.5s cubic-bezier(.4,0,1,1) forwards;
+            pointer-events: none;
+        }
+        @keyframes splashOut {
+            0%   { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.04); }
+        }
+
+        /* ── QR Scanner ── */
+        #qr-canvas { display:none; }
+
+        /* Scanning frame overlay */
+        #qr-frame {
+            display: none; position: absolute; z-index: 28; pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+        }
+        #qr-frame.visible { display: block; }
+        #qr-frame::before, #qr-frame::after,
+        #qr-frame .qr-corner-tr, #qr-frame .qr-corner-bl, #qr-frame .qr-corner-br {
+            content: ''; position: absolute; width: 22px; height: 22px;
+            border-color: #fbbf24; border-style: solid;
+        }
+        #qr-frame::before      { top:-2px;    left:-2px;  border-width: 3px 0 0 3px; }
+        #qr-frame::after       { top:-2px;    right:-2px; border-width: 3px 3px 0 0; }
+        #qr-frame .qr-corner-bl{ bottom:-2px; left:-2px;  border-width: 0 0 3px 3px; }
+        #qr-frame .qr-corner-br{ bottom:-2px; right:-2px; border-width: 0 3px 3px 0; }
+
+        /* Laser scan line */
+        #qr-laser {
+            position: absolute; left: 4px; right: 4px; height: 2px;
+            background: linear-gradient(90deg, transparent, #fbbf24, transparent);
+            box-shadow: 0 0 6px #fbbf24;
+            animation: qrScan 1.8s ease-in-out infinite;
+        }
+        @keyframes qrScan {
+            0%   { top: 6px;  opacity: 1; }
+            49%  { top: calc(100% - 8px); opacity: 1; }
+            50%  { opacity: 0; }
+            51%  { top: 6px;  opacity: 0; }
+            52%  { opacity: 1; }
+            100% { top: calc(100% - 8px); opacity: 1; }
+        }
+
+        /* Standby finder ring (when QR mode on, no code found) */
+        #qr-finder {
+            display: none; position: absolute; z-index: 27; pointer-events: none;
+            left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: 220px; height: 220px;
+            border: 2px solid rgba(251,191,36,0.35); border-radius: 16px;
+        }
+        #qr-finder.visible { display: block; }
+        #qr-finder::after {
+            content: 'Đưa mã QR vào khung';
+            position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.6); font-size: 0.72rem; white-space: nowrap;
+        }
+
+        /* Result toast */
+        #qr-result {
+            display: none; position: absolute; bottom: 155px; left: 50%;
+            transform: translateX(-50%); z-index: 45;
+            background: rgba(0,0,0,0.92); backdrop-filter: blur(14px);
+            border: 1px solid rgba(251,191,36,0.45); border-radius: 18px;
+            padding: 14px 18px; max-width: 88vw; width: 360px;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.65);
+            animation: qrResultIn 0.28s cubic-bezier(.34,1.56,.64,1) forwards;
+        }
+        @keyframes qrResultIn {
+            from { opacity:0; transform: translateX(-50%) translateY(16px) scale(0.95); }
+            to   { opacity:1; transform: translateX(-50%) translateY(0)    scale(1);    }
+        }
+        #qr-result.visible { display: block; }
+        .qr-result-text {
+            color: #fff; font-size: 0.88rem; word-break: break-all;
+            max-height: 80px; overflow-y: auto; line-height: 1.45;
+            margin-bottom: 12px;
+        }
+        .qr-result-text a { color: #fbbf24; text-decoration: underline; }
+        .qr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .qr-action-btn {
+            flex: 1; min-width: 90px; padding: 8px 10px; border-radius: 10px;
+            font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            transition: opacity 0.15s;
+        }
+        .qr-action-btn:active { opacity: 0.75; }
+        .qr-btn-open  { background: #fbbf24; color: #000; }
+        .qr-btn-copy  { background: rgba(255,255,255,0.14); color: #fff; }
+        .qr-btn-close { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); min-width: 40px; flex: 0; }
+
+        /* ── OCR Scanner ── */
+
+        /* Drag-to-select region overlay */
+        #ocr-region-canvas {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            z-index: 29; display: none; cursor: crosshair;
+            touch-action: none;
+        }
+        #ocr-region-canvas.visible { display: block; }
+
+        /* Hint label above the region */
+        #ocr-hint {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 29; pointer-events: none;
+            color: rgba(255,255,255,0.55); font-size: 0.78rem;
+            text-align: center; line-height: 1.5;
+            display: none; white-space: nowrap;
+        }
+        #ocr-hint.visible { display: block; }
+
+        /* Bottom scan trigger bar */
+        #ocr-trigger-bar {
+            display: none; position: absolute; bottom: 145px; left: 50%;
+            transform: translateX(-50%); z-index: 45;
+            display: none; align-items: center; gap: 10px;
+            background: rgba(0,0,0,0.82); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 30px;
+            padding: 10px 18px; pointer-events: auto;
+        }
+        #ocr-trigger-bar.visible { display: flex; }
+        #ocr-scan-btn {
+            background: #fbbf24; color: #000;
+            border: none; border-radius: 20px;
+            padding: 8px 20px; font-weight: 700; font-size: 0.85rem;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+            transition: opacity 0.15s;
+        }
+        #ocr-scan-btn:active { opacity: 0.75; }
+        #ocr-scan-btn:disabled { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); cursor: default; }
+        #ocr-progress-text { color: rgba(255,255,255,0.55); font-size: 0.78rem; min-width: 80px; }
+
+        /* OCR result panel */
+        #ocr-result {
+            display: none; position: absolute; left: 50%;
+            transform: translateX(-50%);
+            bottom: 140px; z-index: 46;
+            background: rgba(0,0,0,0.93); backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 18px;
+            padding: 16px 18px; width: clamp(280px, 88vw, 400px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+            animation: ocrResultIn 0.28s cubic-bezier(.34,1.4,.64,1) forwards;
+        }
+        @keyframes ocrResultIn {
+            from { opacity:0; transform: translateX(-50%) translateY(14px) scale(0.96); }
+            to   { opacity:1; transform: translateX(-50%) translateY(0)    scale(1);    }
+        }
+        #ocr-result.visible { display: block; }
+
+        #ocr-result-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px; padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        #ocr-result-textarea {
+            width: 100%; min-height: 80px; max-height: 200px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px; color: #fff; font-size: 0.9rem; line-height: 1.55;
+            padding: 10px 12px; resize: vertical; outline: none;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            box-sizing: border-box;
+        }
+        #ocr-result-textarea::selection { background: rgba(251,191,36,0.35); }
+        .ocr-action-row {
+            display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+        }
+        .ocr-act-btn {
+            flex:1; min-width: 80px; padding: 9px 10px; border-radius: 10px;
+            font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            transition: opacity 0.15s;
+        }
+        .ocr-act-btn:active { opacity: 0.75; }
+        .ocr-btn-copy  { background: #fbbf24; color: #000; }
+        .ocr-btn-share { background: rgba(255,255,255,0.13); color: #fff; }
+        .ocr-btn-rescan{ background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.7); }
+        .ocr-btn-close { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); flex:0; min-width:40px; }
     </style>
 </head>
 <body>
@@ -256,6 +557,57 @@
         <div id="flash-overlay" class="flash-effect"></div>
         <div id="focus-ring"></div>
         <div id="zoom-indicator">1.0×</div>
+
+        <!-- QR elements -->
+        <canvas id="qr-canvas"></canvas>
+        <div id="qr-finder"><span></span></div>
+        <div id="qr-frame"><span class="qr-corner-bl"></span><span class="qr-corner-br"></span><div id="qr-laser"></div></div>
+        <div id="qr-result">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:9px;">
+                <i data-lucide="qr-code" style="width:16px;height:16px;color:#fbbf24;flex-shrink:0;"></i>
+                <span style="color:#fbbf24;font-weight:700;font-size:0.8rem;letter-spacing:0.04em;">MÃ QR ĐÃ QUÉT</span>
+                <button class="qr-btn-close qr-action-btn" onclick="dismissQrResult()" style="margin-left:auto;">✕</button>
+            </div>
+            <div class="qr-result-text" id="qr-result-text"></div>
+            <div class="qr-actions">
+                <button id="qr-btn-open" class="qr-action-btn qr-btn-open" onclick="qrOpenUrl()" style="display:none;">
+                    <i data-lucide="external-link" style="width:14px;height:14px;"></i> Mở link
+                </button>
+                <button class="qr-action-btn qr-btn-copy" onclick="qrCopyText()">
+                    <i data-lucide="copy" style="width:14px;height:14px;"></i> Sao chép
+                </button>
+            </div>
+        </div>
+
+        <!-- OCR elements -->
+        <canvas id="ocr-region-canvas"></canvas>
+        <div id="ocr-hint">Kéo để chọn vùng văn bản<br><span style="opacity:0.45;font-size:0.7rem;">hoặc nhấn Quét để quét toàn màn hình</span></div>
+        <div id="ocr-trigger-bar">
+            <span id="ocr-progress-text">Chọn vùng cần quét</span>
+            <button id="ocr-scan-btn" onclick="startOcr()">
+                <i data-lucide="scan-text" style="width:15px;height:15px;"></i> Quét chữ
+            </button>
+        </div>
+        <div id="ocr-result">
+            <div id="ocr-result-header">
+                <i data-lucide="scan-text" style="width:16px;height:16px;color:#fbbf24;flex-shrink:0;"></i>
+                <span style="color:#fbbf24;font-weight:700;font-size:0.8rem;letter-spacing:0.04em;flex:1;">VĂN BẢN TIẾNG VIỆT</span>
+                <span id="ocr-char-count" style="color:rgba(255,255,255,0.3);font-size:0.72rem;"></span>
+                <button class="ocr-act-btn ocr-btn-close" onclick="closeOcrResult()" style="padding:4px 8px;">✕</button>
+            </div>
+            <textarea id="ocr-result-textarea" placeholder="Kết quả sẽ hiện ở đây..." spellcheck="false"></textarea>
+            <div class="ocr-action-row">
+                <button class="ocr-act-btn ocr-btn-copy" onclick="ocrCopy()">
+                    <i data-lucide="copy" style="width:14px;height:14px;"></i> Sao chép
+                </button>
+                <button class="ocr-act-btn ocr-btn-share" onclick="ocrShare()">
+                    <i data-lucide="share-2" style="width:14px;height:14px;"></i> Chia sẻ
+                </button>
+                <button class="ocr-act-btn ocr-btn-rescan" onclick="startOcr()">
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Quét lại
+                </button>
+            </div>
+        </div>
 
         <!-- Resolution badge -->
         <div id="res-badge">SD</div>
@@ -327,6 +679,14 @@
                 <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
             </div>
             <div class="flex gap-2 flex-wrap justify-end">
+                <!-- OCR -->
+                <div id="ocr-btn" class="icon-btn" onclick="toggleOcrMode()" title="Quét văn bản tiếng Việt (OCR)">
+                    <i data-lucide="scan-text" class="w-5 h-5"></i>
+                </div>
+                <!-- QR Scanner -->
+                <div id="qr-btn" class="icon-btn" onclick="toggleQrMode()" title="Quét mã QR tự động">
+                    <i data-lucide="qr-code" class="w-5 h-5"></i>
+                </div>
                 <!-- Sport / Action mode -->
                 <div id="sport-btn" class="icon-btn" onclick="toggleSportMode()" title="Sport / Action — chụp chuyển động sắc nét">
                     <i data-lucide="zap" class="w-5 h-5"></i>
@@ -447,6 +807,52 @@
 </div>
 
 <canvas id="photo-canvas" style="display:none;"></canvas>
+
+<!-- ── Splash Screen ── -->
+<div id="splash">
+    <div id="splash-bg"></div>
+
+    <!-- Shutter ring animation -->
+    <div id="splash-shutter">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <!-- outer ring -->
+            <circle cx="60" cy="60" r="56" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+            <!-- animated arc -->
+            <circle id="splash-arc" cx="60" cy="60" r="56" fill="none"
+                stroke="#fbbf24" stroke-width="1.5"
+                stroke-dasharray="351.86" stroke-dashoffset="351.86"
+                stroke-linecap="round"
+                transform="rotate(-90 60 60)"/>
+            <!-- lens body -->
+            <circle cx="60" cy="60" r="42" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+            <!-- lens inner -->
+            <circle cx="60" cy="60" r="28" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+            <!-- lens reflection -->
+            <ellipse cx="50" cy="50" rx="7" ry="4.5" fill="rgba(255,255,255,0.07)" transform="rotate(-30 50 50)"/>
+            <!-- aperture blades (6-blade) -->
+            <g id="splash-blades" opacity="0">
+                <path d="M60 60 L60 35 A25 25 0 0 1 82 48 Z" fill="rgba(0,0,0,0.75)"/>
+                <path d="M60 60 L82 48 A25 25 0 0 1 82 72 Z" fill="rgba(0,0,0,0.75)"/>
+                <path d="M60 60 L82 72 A25 25 0 0 1 60 85 Z" fill="rgba(0,0,0,0.75)"/>
+                <path d="M60 60 L60 85 A25 25 0 0 1 38 72 Z" fill="rgba(0,0,0,0.75)"/>
+                <path d="M60 60 L38 72 A25 25 0 0 1 38 48 Z" fill="rgba(0,0,0,0.75)"/>
+                <path d="M60 60 L38 48 A25 25 0 0 1 60 35 Z" fill="rgba(0,0,0,0.75)"/>
+            </g>
+        </svg>
+    </div>
+
+    <!-- VTL wordmark -->
+    <div id="splash-logo">
+        <span id="splash-v">V</span><span id="splash-t">T</span><span id="splash-l">L</span>
+    </div>
+
+    <div id="splash-tagline">Golden Ratio Camera</div>
+    <div id="splash-dot-row">
+        <span class="splash-dot"></span>
+        <span class="splash-dot"></span>
+        <span class="splash-dot"></span>
+    </div>
+</div>
 
 <script>
 lucide.createIcons();
@@ -869,17 +1275,17 @@ async function startCamera() {
     catch(e) { try { stream = await navigator.mediaDevices.getUserMedia(basic); }
     catch(e) { try { stream = await navigator.mediaDevices.getUserMedia(minimal); }
     catch(e) { showGuidanceMsgs('<i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i> Lỗi Camera',
-                "<span class='text-red-400'>Không thể truy cập Camera.</span>"); return; } } }
+                "<span class='text-red-400'>Không thể truy cập Camera.</span>"); dismissSplash(); return; } } }
     videoElement.srcObject = stream;
     videoElement.style.transform = currentFacingMode==='user' ? 'scaleX(-1)' : 'scaleX(1)';
     videoElement.play().catch(()=>{});
     videoElement.onloadedmetadata = () => {
         updateViewFinder(); currentZoom=1; getZoomCapabilities();
-        // re-apply beauty live filter after camera switch
         if (beautyLevel > 0) {
             const p = beautyPresets[beautyLevel];
             videoElement.style.filter = `brightness(${p.br}) contrast(${p.ct}) saturate(${p.sat}) sepia(${p.sep}) hue-rotate(${p.hue}deg)`;
         }
+        dismissSplash(); // camera is live → fade out splash
     };
 }
 function switchCamera() { currentFacingMode = currentFacingMode==='environment'?'user':'environment'; startCamera(); }
@@ -1279,6 +1685,506 @@ function deleteFromLightbox() {
     lightboxIndex = Math.min(lightboxIndex, gallery.length-1);
     openLightbox(lightboxIndex);
 }
+
+// ─── QR Scanner ───────────────────────────────────────────────────────────────
+let isQrMode       = false;
+let qrRafId        = null;
+let qrLastData     = null;        // last decoded string, avoid repeat toasts
+let qrCooldown     = false;       // brief pause after detection
+let qrResultText   = '';
+
+const QR_SCAN_PX   = 480;         // downsample long side to this for speed
+const QR_INTERVAL  = 120;         // ms between scan attempts (~8 fps)
+let   qrLastScan   = 0;
+
+function toggleQrMode() {
+    isQrMode = !isQrMode;
+    document.getElementById('qr-btn').classList.toggle('btn-active', isQrMode);
+
+    if (isQrMode) {
+        document.getElementById('qr-finder').classList.add('visible');
+        qrLastData = null;
+        requestAnimationFrame(qrScanLoop);
+        showGuidanceMsgs(
+            '<i data-lucide="qr-code" class="w-4 h-4 text-yellow-400"></i> Quét Mã QR',
+            "<b>QR tự động:</b> Đưa mã QR vào khung vàng — app tự nhận diện, không cần chụp.",
+            8000
+        );
+    } else {
+        document.getElementById('qr-finder').classList.remove('visible');
+        document.getElementById('qr-frame').classList.remove('visible');
+        document.getElementById('qr-result').classList.remove('visible');
+        qrLastData = null;
+        if (qrRafId) { cancelAnimationFrame(qrRafId); qrRafId = null; }
+    }
+}
+
+function qrScanLoop(ts) {
+    if (!isQrMode) return;
+    qrRafId = requestAnimationFrame(qrScanLoop);
+
+    if (ts - qrLastScan < QR_INTERVAL) return;
+    qrLastScan = ts;
+    if (qrCooldown || !videoElement.videoWidth) return;
+
+    // ── Sample frame into small canvas ──
+    const vW = videoElement.videoWidth, vH = videoElement.videoHeight;
+    const scale  = QR_SCAN_PX / Math.max(vW, vH);
+    const scanW  = Math.round(vW * scale);
+    const scanH  = Math.round(vH * scale);
+
+    const qc  = document.getElementById('qr-canvas');
+    qc.width  = scanW; qc.height = scanH;
+    const qx  = qc.getContext('2d', { willReadFrequently: true });
+    qx.drawImage(videoElement, 0, 0, scanW, scanH);
+    const imageData = qx.getImageData(0, 0, scanW, scanH);
+
+    if (typeof jsQR === 'undefined') return; // library not loaded yet
+
+    const code = jsQR(imageData.data, scanW, scanH, {
+        inversionAttempts: 'dontInvert'
+    });
+
+    if (code) {
+        onQrDetected(code, scanW, scanH);
+    } else {
+        // no code — show finder ring, hide frame
+        document.getElementById('qr-finder').classList.add('visible');
+        document.getElementById('qr-frame').classList.remove('visible');
+    }
+}
+
+function onQrDetected(code, scanW, scanH) {
+    const data = code.data;
+
+    // Highlight the QR bounding box on screen
+    const vf   = viewFinder.getBoundingClientRect();
+    const vW   = videoElement.videoWidth, vH = videoElement.videoHeight;
+
+    // scale from scan canvas coords → video coords → viewfinder display coords
+    const toVf = (pt) => {
+        // pt is in scanW×scanH space; map to vW×vH then to viewfinder
+        const nx = (pt.x / scanW);   // 0–1
+        const ny = (pt.y / scanH);
+
+        // account for object-fit:cover crop inside viewfinder
+        const vidAspect = vW / vH;
+        const vfAspect  = vf.width / vf.height;
+        let cropX = 0, cropY = 0, cropW = 1, cropH = 1;
+        if (vidAspect > vfAspect) {
+            cropW = vfAspect / vidAspect;
+            cropX = (1 - cropW) / 2;
+        } else {
+            cropH = vidAspect / vfAspect;
+            cropY = (1 - cropH) / 2;
+        }
+        return {
+            x: ((nx - cropX) / cropW) * vf.width  + vf.left,
+            y: ((ny - cropY) / cropH) * vf.height + vf.top
+        };
+    };
+
+    const corners = [
+        toVf(code.location.topLeftCorner),
+        toVf(code.location.topRightCorner),
+        toVf(code.location.bottomRightCorner),
+        toVf(code.location.bottomLeftCorner)
+    ];
+    const xs = corners.map(c => c.x), ys = corners.map(c => c.y);
+    const pad = 10;
+    const fx = Math.min(...xs) - pad, fy = Math.min(...ys) - pad;
+    const fw = Math.max(...xs) - fx + pad, fh = Math.max(...ys) - fy + pad;
+
+    const frame = document.getElementById('qr-frame');
+    frame.style.left   = fx + 'px';
+    frame.style.top    = fy + 'px';
+    frame.style.width  = fw + 'px';
+    frame.style.height = fh + 'px';
+    frame.classList.add('visible');
+    document.getElementById('qr-finder').classList.remove('visible');
+
+    // Only show result toast if new data
+    if (data === qrLastData) return;
+    qrLastData = data;
+
+    // haptic feedback
+    if (navigator.vibrate) navigator.vibrate(60);
+
+    // Show result panel
+    qrResultText = data;
+    const isUrl = /^https?:\/\//i.test(data) || /^www\./i.test(data);
+    const displayHtml = isUrl
+        ? `<a href="${data}" target="_blank" rel="noopener noreferrer">${data}</a>`
+        : escapeHtml(data);
+
+    document.getElementById('qr-result-text').innerHTML = displayHtml;
+    document.getElementById('qr-btn-open').style.display = isUrl ? 'flex' : 'none';
+    document.getElementById('qr-result').classList.add('visible');
+    lucide.createIcons();
+
+    // Brief cooldown so scanner doesn't spam on same code
+    qrCooldown = true;
+    setTimeout(() => { qrCooldown = false; }, 2000);
+}
+
+function dismissQrResult() {
+    document.getElementById('qr-result').classList.remove('visible');
+    document.getElementById('qr-frame').classList.remove('visible');
+    qrLastData = null; // allow re-detection
+}
+
+function qrOpenUrl() {
+    const url = /^https?:\/\//i.test(qrResultText) ? qrResultText : 'https://' + qrResultText;
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+async function qrCopyText() {
+    try {
+        await navigator.clipboard.writeText(qrResultText);
+        const btn = document.querySelector('.qr-btn-copy');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px;"></i> Đã chép!';
+        lucide.createIcons();
+        setTimeout(() => { btn.innerHTML = orig; lucide.createIcons(); }, 1800);
+    } catch(e) {
+        // fallback: select text
+        const el = document.getElementById('qr-result-text');
+        const range = document.createRange(); range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Pause QR scan while preview / gallery modal is open (perf)
+const _origShowModal   = typeof showModal   !== 'undefined' ? showModal   : null;
+const _origOpenGallery = typeof openGallery !== 'undefined' ? openGallery : null;
+
+// ─── OCR (Tesseract.js — tiếng Việt) ──────────────────────────────────────────
+let isOcrMode      = false;
+let ocrWorker      = null;       // Tesseract worker instance
+let ocrLoading     = false;
+let ocrScanning    = false;
+
+// Drag-region state
+let ocrRegion      = null;       // { x, y, w, h } in viewfinder px, null = full frame
+let ocrDragStart   = null;
+let ocrDragging    = false;
+
+const ocrCanvas    = () => document.getElementById('ocr-region-canvas');
+const ocrHint      = () => document.getElementById('ocr-hint');
+const ocrBar       = () => document.getElementById('ocr-trigger-bar');
+const ocrScanBtn   = () => document.getElementById('ocr-scan-btn');
+const ocrProgress  = () => document.getElementById('ocr-progress-text');
+const ocrResultEl  = () => document.getElementById('ocr-result');
+const ocrTextarea  = () => document.getElementById('ocr-result-textarea');
+
+// ── Toggle OCR mode ────────────────────────────────────────────────────────────
+function toggleOcrMode() {
+    isOcrMode = !isOcrMode;
+    document.getElementById('ocr-btn').classList.toggle('btn-active', isOcrMode);
+
+    if (isOcrMode) {
+        ocrRegion = null;
+        setupOcrCanvas();
+        ocrHint().classList.add('visible');
+        ocrBar().classList.add('visible');
+        ocrProgress().textContent = 'Kéo chọn vùng hoặc nhấn Quét';
+        showGuidanceMsgs(
+            '<i data-lucide="scan-text" class="w-4 h-4 text-yellow-400"></i> Quét Văn Bản OCR',
+            "<b>Hướng camera vào văn bản</b> rồi nhấn <b>Quét chữ</b>. Kéo trên màn hình để khoanh vùng cụ thể.",
+            9000
+        );
+        // Preload Tesseract worker in background
+        initOcrWorker();
+    } else {
+        teardownOcrCanvas();
+        ocrHint().classList.remove('visible');
+        ocrBar().classList.remove('visible');
+        ocrResultEl().classList.remove('visible');
+        ocrRegion = null;
+    }
+}
+
+// ── Lazy-load Tesseract.js and init worker ─────────────────────────────────────
+async function initOcrWorker() {
+    if (ocrWorker || ocrLoading) return;
+    ocrLoading = true;
+    ocrProgress().textContent = 'Đang tải thư viện OCR...';
+    ocrScanBtn().disabled = true;
+
+    // Dynamically inject script if not loaded
+    if (typeof Tesseract === 'undefined') {
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    try {
+        ocrWorker = await Tesseract.createWorker('vie', 1, {
+            workerPath:  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+            corePath:    'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
+            langPath:    'https://tessdata.projectnaptha.com/4.0.0',
+            logger: m => {
+                if (m.status === 'loading tesseract core') {
+                    ocrProgress().textContent = 'Đang tải lõi OCR...';
+                } else if (m.status === 'loading language traineddata') {
+                    ocrProgress().textContent = 'Đang tải dữ liệu tiếng Việt...';
+                } else if (m.status === 'initializing api') {
+                    ocrProgress().textContent = 'Khởi tạo engine...';
+                } else if (m.status === 'recognizing text') {
+                    const pct = Math.round((m.progress || 0) * 100);
+                    ocrProgress().textContent = `Nhận diện... ${pct}%`;
+                }
+            }
+        });
+
+        // Optimal settings for Vietnamese printed text
+        await ocrWorker.setParameters({
+            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+            preserve_interword_spaces: '1',
+        });
+
+        ocrLoading = false;
+        ocrProgress().textContent = 'Kéo chọn vùng hoặc nhấn Quét';
+        ocrScanBtn().disabled = false;
+    } catch(e) {
+        ocrLoading = false;
+        ocrProgress().textContent = 'Lỗi tải OCR — thử lại';
+        ocrScanBtn().disabled = false;
+        ocrWorker = null;
+    }
+}
+
+// ── Capture frame → crop region → run OCR ─────────────────────────────────────
+async function startOcr() {
+    if (ocrScanning || !videoElement.videoWidth) return;
+    if (!ocrWorker) { await initOcrWorker(); if (!ocrWorker) return; }
+
+    ocrScanning = true;
+    ocrScanBtn().disabled = true;
+    ocrResultEl().classList.remove('visible');
+
+    // 1. Capture current video frame to an offscreen canvas at full video res
+    const vW = videoElement.videoWidth, vH = videoElement.videoHeight;
+    const vfW = viewFinder.offsetWidth,  vfH = viewFinder.offsetHeight;
+    const vidAspect = vW / vH, vfAspect = vfW / vfH;
+
+    // Compute crop coordinates (object-fit: cover math)
+    let cropX = 0, cropY = 0, cropW = vW, cropH = vH;
+    if (vidAspect > vfAspect) {
+        cropW = vH * vfAspect; cropX = (vW - cropW) / 2;
+    } else {
+        cropH = vW / vfAspect; cropY = (vH - cropH) / 2;
+    }
+
+    // If user drew a region, further crop to that sub-region
+    let finalCropX = cropX, finalCropY = cropY;
+    let finalCropW = cropW, finalCropH = cropH;
+    if (ocrRegion) {
+        const scaleX = cropW / vfW, scaleY = cropH / vfH;
+        finalCropX = cropX + ocrRegion.x * scaleX;
+        finalCropY = cropY + ocrRegion.y * scaleY;
+        finalCropW = ocrRegion.w * scaleX;
+        finalCropH = ocrRegion.h * scaleY;
+    }
+
+    // 2. Upsample for better OCR accuracy (min 1200px wide)
+    const MIN_OCR_W = 1200;
+    const ocrScale  = finalCropW < MIN_OCR_W ? MIN_OCR_W / finalCropW : 1;
+    const ocrW = Math.round(finalCropW * ocrScale);
+    const ocrH = Math.round(finalCropH * ocrScale);
+
+    const ocrCvs = document.createElement('canvas');
+    ocrCvs.width = ocrW; ocrCvs.height = ocrH;
+    const ocrCtx = ocrCvs.getContext('2d');
+    ocrCtx.imageSmoothingEnabled = true;
+    ocrCtx.imageSmoothingQuality = 'high';
+
+    // Mirror if front camera
+    if (currentFacingMode === 'user') { ocrCtx.translate(ocrW,0); ocrCtx.scale(-1,1); }
+    ocrCtx.drawImage(videoElement, finalCropX, finalCropY, finalCropW, finalCropH, 0, 0, ocrW, ocrH);
+    if (currentFacingMode === 'user') ocrCtx.setTransform(1,0,0,1,0,0);
+
+    // 3. Pre-processing: slightly sharpen & boost contrast for cleaner OCR
+    unsharpMask(ocrCvs, 0.5, 1.0, 4);
+    // Contrast boost
+    const imgD = ocrCtx.getImageData(0, 0, ocrW, ocrH);
+    const d = imgD.data;
+    const factor = 1.15;
+    for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, Math.max(0, factor * (d[i]   - 128) + 128));
+        d[i+1] = Math.min(255, Math.max(0, factor * (d[i+1] - 128) + 128));
+        d[i+2] = Math.min(255, Math.max(0, factor * (d[i+2] - 128) + 128));
+    }
+    ocrCtx.putImageData(imgD, 0, 0);
+
+    // 4. Run Tesseract
+    try {
+        const { data } = await ocrWorker.recognize(ocrCvs);
+        let text = data.text.trim();
+
+        // Post-process: remove stray single chars on blank lines
+        text = text.replace(/^.\s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+
+        if (!text) {
+            ocrProgress().textContent = 'Không nhận được chữ — thử lại';
+        } else {
+            ocrTextarea().value = text;
+            document.getElementById('ocr-char-count').textContent = `${text.length} ký tự`;
+            ocrResultEl().classList.add('visible');
+            ocrProgress().textContent = `✓ Nhận diện xong`;
+            lucide.createIcons();
+            if (navigator.vibrate) navigator.vibrate(40);
+        }
+    } catch(e) {
+        ocrProgress().textContent = 'Lỗi nhận diện — thử lại';
+    }
+
+    ocrScanning = false;
+    ocrScanBtn().disabled = false;
+}
+
+// ── Result actions ─────────────────────────────────────────────────────────────
+async function ocrCopy() {
+    const text = ocrTextarea().value;
+    if (!text) return;
+    try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.querySelector('.ocr-btn-copy');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px;"></i> Đã sao chép!';
+        lucide.createIcons();
+        if (navigator.vibrate) navigator.vibrate(30);
+        setTimeout(() => { btn.innerHTML = orig; lucide.createIcons(); }, 2000);
+    } catch(e) { ocrTextarea().select(); }
+}
+
+async function ocrShare() {
+    const text = ocrTextarea().value;
+    if (!text) return;
+    if (navigator.share) {
+        try { await navigator.share({ title: 'VTL Camera — Văn bản quét', text }); return; }
+        catch(e) {}
+    }
+    await ocrCopy();
+}
+
+function closeOcrResult() {
+    ocrResultEl().classList.remove('visible');
+    ocrProgress().textContent = 'Kéo chọn vùng hoặc nhấn Quét';
+}
+
+// ── Drag-region on canvas ──────────────────────────────────────────────────────
+function setupOcrCanvas() {
+    const c = ocrCanvas();
+    c.width  = viewFinder.offsetWidth;
+    c.height = viewFinder.offsetHeight;
+    c.classList.add('visible');
+    c.addEventListener('pointerdown', ocrPointerDown);
+    c.addEventListener('pointermove', ocrPointerMove);
+    c.addEventListener('pointerup',   ocrPointerUp);
+}
+function teardownOcrCanvas() {
+    const c = ocrCanvas();
+    c.classList.remove('visible');
+    c.removeEventListener('pointerdown', ocrPointerDown);
+    c.removeEventListener('pointermove', ocrPointerMove);
+    c.removeEventListener('pointerup',   ocrPointerUp);
+    const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+}
+
+function ocrPointerDown(e) {
+    e.preventDefault();
+    const r = ocrCanvas().getBoundingClientRect();
+    ocrDragStart = { x: e.clientX - r.left, y: e.clientY - r.top };
+    ocrDragging  = true;
+    ocrRegion    = null;
+    ocrHint().classList.remove('visible');
+}
+function ocrPointerMove(e) {
+    if (!ocrDragging || !ocrDragStart) return;
+    e.preventDefault();
+    const c = ocrCanvas(), r = c.getBoundingClientRect();
+    const cur = { x: e.clientX - r.left, y: e.clientY - r.top };
+    const rx = Math.min(ocrDragStart.x, cur.x);
+    const ry = Math.min(ocrDragStart.y, cur.y);
+    const rw = Math.abs(cur.x - ocrDragStart.x);
+    const rh = Math.abs(cur.y - ocrDragStart.y);
+    drawOcrRegion(c, rx, ry, rw, rh);
+}
+function ocrPointerUp(e) {
+    if (!ocrDragging) return;
+    ocrDragging = false;
+    const c = ocrCanvas(), r = c.getBoundingClientRect();
+    const cur = { x: e.clientX - r.left, y: e.clientY - r.top };
+    const rx = Math.min(ocrDragStart.x, cur.x);
+    const ry = Math.min(ocrDragStart.y, cur.y);
+    const rw = Math.abs(cur.x - ocrDragStart.x);
+    const rh = Math.abs(cur.y - ocrDragStart.y);
+    if (rw > 20 && rh > 10) {
+        ocrRegion = { x: rx, y: ry, w: rw, h: rh };
+        ocrProgress().textContent = 'Vùng đã chọn — nhấn Quét chữ';
+    } else {
+        ocrRegion = null;
+        const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+        ocrProgress().textContent = 'Kéo chọn vùng hoặc nhấn Quét';
+    }
+    ocrDragStart = null;
+}
+
+function drawOcrRegion(canvas, x, y, w, h) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // dim outside
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // clear inside (bright region)
+    ctx.clearRect(x, y, w, h);
+    // border
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+    // corner handles
+    const hs = 10;
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
+    [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy]) => {
+        const dx = cx === x ? 1 : -1, dy = cy === y ? 1 : -1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + dy * hs); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx * hs, cy);
+        ctx.stroke();
+    });
+}
+
+// Resize OCR canvas when viewfinder size changes
+window.addEventListener('resize', () => {
+    if (!isOcrMode) return;
+    const c = ocrCanvas();
+    c.width = viewFinder.offsetWidth; c.height = viewFinder.offsetHeight;
+    ocrRegion = null;
+});
+
+// ─── Splash dismiss ───────────────────────────────────────────────────────────
+function dismissSplash() {
+    const splash = document.getElementById('splash');
+    if (!splash || splash.dataset.dismissed) return;
+    splash.dataset.dismissed = '1';
+    // wait for the entrance animations to finish (~1.8s), then exit
+    const delay = Math.max(0, 1900 - (Date.now() - splashStart));
+    setTimeout(() => {
+        splash.classList.add('hiding');
+        splash.addEventListener('animationend', () => splash.remove(), { once: true });
+    }, delay);
+}
+const splashStart = Date.now();
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
 window.onload = () => {
