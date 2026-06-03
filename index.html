@@ -546,6 +546,57 @@
         .ocr-btn-share { background: rgba(255,255,255,0.13); color: #fff; }
         .ocr-btn-rescan{ background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.7); }
         .ocr-btn-close { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); flex:0; min-width:40px; }
+
+        /* ── Translation ── */
+        #trans-bar {
+            display: none; margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 10px;
+        }
+        #trans-bar.visible { display: block; }
+
+        .trans-lang-row {
+            display: flex; gap: 6px; margin-bottom: 8px; align-items: center;
+        }
+        .trans-lang-btn {
+            flex: 1; padding: 7px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
+            font-size: 0.78rem; font-weight: 600; cursor: pointer; text-align: center;
+            transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 4px;
+        }
+        .trans-lang-btn.active { background: rgba(251,191,36,0.18); color: #fbbf24; border-color: rgba(251,191,36,0.5); }
+        .trans-lang-btn:active  { opacity: 0.7; }
+
+        #trans-result-box {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 10px 12px; color: #fff;
+            font-size: 0.88rem; line-height: 1.6; min-height: 50px;
+            white-space: pre-wrap; word-break: break-word;
+            display: none; position: relative;
+        }
+        #trans-result-box.visible { display: block; }
+        #trans-result-box.loading { color: rgba(255,255,255,0.4); font-style: italic; }
+
+        #trans-copy-row {
+            display: none; margin-top: 8px; gap: 8px;
+        }
+        #trans-copy-row.visible { display: flex; }
+        .trans-copy-btn {
+            flex:1; padding: 8px; border-radius: 10px; border: none;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            transition: opacity 0.15s;
+        }
+        .trans-copy-btn:active { opacity: 0.7; }
+        .tcb-copy  { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .tcb-share { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.75); }
+
+        /* Detected-language chip */
+        #trans-detected {
+            font-size: 0.68rem; color: rgba(255,255,255,0.35);
+            margin-bottom: 6px; display: none;
+        }
+        #trans-detected.visible { display: block; }
     </style>
 </head>
 <body>
@@ -600,12 +651,43 @@
                 <button class="ocr-act-btn ocr-btn-copy" onclick="ocrCopy()">
                     <i data-lucide="copy" style="width:14px;height:14px;"></i> Sao chép
                 </button>
-                <button class="ocr-act-btn ocr-btn-share" onclick="ocrShare()">
-                    <i data-lucide="share-2" style="width:14px;height:14px;"></i> Chia sẻ
+                <button class="ocr-act-btn" style="background:rgba(56,189,248,0.18);color:#7dd3fc;" onclick="toggleTransBar()">
+                    <i data-lucide="languages" style="width:14px;height:14px;"></i> Dịch
                 </button>
                 <button class="ocr-act-btn ocr-btn-rescan" onclick="startOcr()">
-                    <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Quét lại
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Lại
                 </button>
+                <button class="ocr-act-btn ocr-btn-close" onclick="closeOcrResult()">✕</button>
+            </div>
+
+            <!-- Translation panel -->
+            <div id="trans-bar">
+                <div class="trans-lang-row">
+                    <span style="color:rgba(255,255,255,0.4);font-size:0.72rem;flex-shrink:0;">Dịch từ:</span>
+                    <button id="tlb-auto" class="trans-lang-btn active" onclick="selectTransLang('auto')">🌐 Tự động</button>
+                    <button id="tlb-en"   class="trans-lang-btn"        onclick="selectTransLang('en')">🇬🇧 Anh</button>
+                    <button id="tlb-zh"   class="trans-lang-btn"        onclick="selectTransLang('zh')">🇨🇳 Trung</button>
+                </div>
+                <div id="trans-detected"></div>
+                <div id="trans-result-box">Nhấn <b>Dịch ngay</b> để bắt đầu</div>
+                <div style="margin-top:8px;">
+                    <button onclick="runTranslation()" style="
+                        width:100%;padding:9px;border-radius:10px;border:none;
+                        background:rgba(56,189,248,0.22);color:#7dd3fc;
+                        font-weight:700;font-size:0.83rem;cursor:pointer;
+                        display:flex;align-items:center;justify-content:center;gap:6px;
+                    " id="trans-go-btn">
+                        <i data-lucide="languages" style="width:15px;height:15px;"></i> Dịch ngay → Tiếng Việt
+                    </button>
+                </div>
+                <div id="trans-copy-row">
+                    <button class="trans-copy-btn tcb-copy" onclick="transCopy()">
+                        <i data-lucide="copy" style="width:13px;height:13px;"></i> Sao chép bản dịch
+                    </button>
+                    <button class="trans-copy-btn tcb-share" onclick="transShare()">
+                        <i data-lucide="share-2" style="width:13px;height:13px;"></i> Chia sẻ
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -2078,7 +2160,196 @@ async function ocrShare() {
 
 function closeOcrResult() {
     ocrResultEl().classList.remove('visible');
+    document.getElementById('trans-bar').classList.remove('visible');
     ocrProgress().textContent = 'Kéo chọn vùng hoặc nhấn Quét';
+}
+
+// ─── Translation ───────────────────────────────────────────────────────────────
+let transLang       = 'auto';   // 'auto' | 'en' | 'zh'
+let transResultText = '';
+
+function toggleTransBar() {
+    const bar = document.getElementById('trans-bar');
+    const visible = bar.classList.toggle('visible');
+    if (visible) {
+        lucide.createIcons();
+        // auto-detect language from current OCR text when panel opens
+        autoDetectLang(ocrTextarea().value.trim());
+    }
+}
+
+function selectTransLang(lang) {
+    transLang = lang;
+    ['auto','en','zh'].forEach(l => {
+        document.getElementById('tlb-'+l).classList.toggle('active', l === lang);
+    });
+    // clear previous result
+    document.getElementById('trans-result-box').textContent = 'Nhấn Dịch ngay để bắt đầu';
+    document.getElementById('trans-result-box').classList.remove('visible','loading');
+    document.getElementById('trans-copy-row').classList.remove('visible');
+    document.getElementById('trans-detected').classList.remove('visible');
+}
+
+// Simple heuristic language detection (no library needed)
+function detectLang(text) {
+    if (!text) return 'en';
+    // Chinese: CJK Unified Ideographs range
+    const chineseChars = (text.match(/[一-鿿㐀-䶿]/g) || []).length;
+    const totalChars   = text.replace(/\s/g,'').length;
+    if (chineseChars / totalChars > 0.2) return 'zh';
+    // Vietnamese tone marks
+    const vietMarks = (text.match(/[àáâãèéêìíòóôõùúăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹý]/gi) || []).length;
+    if (vietMarks / totalChars > 0.05) return 'vi'; // already Vietnamese
+    return 'en'; // default to English
+}
+
+function autoDetectLang(text) {
+    if (transLang !== 'auto') return;
+    const detected = detectLang(text);
+    const detectedEl = document.getElementById('trans-detected');
+    const names = { en:'Tiếng Anh', zh:'Tiếng Trung', vi:'Tiếng Việt (đã là VN)' };
+    if (detected === 'vi') {
+        detectedEl.textContent = '⚠️ Văn bản có vẻ đã là tiếng Việt';
+    } else {
+        detectedEl.textContent = `Phát hiện: ${names[detected] || detected}`;
+    }
+    detectedEl.classList.add('visible');
+}
+
+async function runTranslation() {
+    const text = ocrTextarea().value.trim();
+    if (!text) return;
+
+    const box    = document.getElementById('trans-result-box');
+    const goBtn  = document.getElementById('trans-go-btn');
+    const copyRow= document.getElementById('trans-copy-row');
+
+    box.textContent = '⏳ Đang dịch...';
+    box.className   = 'loading';
+    box.classList.add('visible');
+    copyRow.classList.remove('visible');
+    goBtn.disabled  = true;
+
+    // Determine source language
+    let srcLang = transLang === 'auto' ? detectLang(text) : transLang;
+
+    if (srcLang === 'vi') {
+        box.className   = '';
+        box.classList.add('visible');
+        box.textContent = '⚠️ Văn bản đã là tiếng Việt, không cần dịch.';
+        goBtn.disabled  = false;
+        return;
+    }
+
+    // Map to MyMemory lang codes
+    const langMap = { en: 'en-US', zh: 'zh-CN' };
+    const srcCode = langMap[srcLang] || 'en-US';
+
+    try {
+        // MyMemory free API: 5000 chars/day per IP, no key needed
+        // Split long texts into ≤500-char chunks (sentence boundaries)
+        const chunks  = splitIntoChunks(text, 450);
+        const results = [];
+
+        for (const chunk of chunks) {
+            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${srcCode}|vi`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+
+            if (data.responseStatus === 200) {
+                results.push(data.responseData.translatedText);
+            } else if (data.responseStatus === 206) {
+                // Partial — still usable
+                results.push(data.responseData.translatedText);
+            } else {
+                throw new Error(data.responseDetails || 'API error');
+            }
+        }
+
+        transResultText = results.join(' ');
+        box.className   = '';
+        box.classList.add('visible');
+        box.textContent = transResultText;
+        copyRow.classList.add('visible');
+        lucide.createIcons();
+
+        // Show detected language chip
+        const detEl = document.getElementById('trans-detected');
+        const names  = { 'en-US':'Tiếng Anh', 'zh-CN':'Tiếng Trung' };
+        detEl.textContent = `Dịch từ: ${names[srcCode] || srcCode} → Tiếng Việt`;
+        detEl.classList.add('visible');
+
+        if (navigator.vibrate) navigator.vibrate(30);
+
+    } catch(e) {
+        box.className   = '';
+        box.classList.add('visible');
+        box.textContent = '❌ Lỗi kết nối. Kiểm tra mạng và thử lại.';
+        console.error('Translation error:', e);
+    }
+
+    goBtn.disabled = false;
+}
+
+// Split text into chunks ≤ maxLen chars, preferring sentence/clause boundaries
+function splitIntoChunks(text, maxLen) {
+    if (text.length <= maxLen) return [text];
+    const chunks = [];
+    // Split by newlines first, then by sentences
+    const paragraphs = text.split(/\n+/);
+    let current = '';
+    for (const para of paragraphs) {
+        if ((current + '\n' + para).length <= maxLen) {
+            current = current ? current + '\n' + para : para;
+        } else {
+            if (current) chunks.push(current.trim());
+            // Further split long paragraphs by '. '
+            if (para.length <= maxLen) {
+                current = para;
+            } else {
+                const sentences = para.match(/[^.!?]+[.!?]*/g) || [para];
+                current = '';
+                for (const s of sentences) {
+                    if ((current + ' ' + s).length <= maxLen) {
+                        current = current ? current + ' ' + s : s;
+                    } else {
+                        if (current) chunks.push(current.trim());
+                        current = s.length <= maxLen ? s : s.slice(0, maxLen);
+                    }
+                }
+            }
+        }
+    }
+    if (current) chunks.push(current.trim());
+    return chunks.filter(c => c.length > 0);
+}
+
+async function transCopy() {
+    if (!transResultText) return;
+    try {
+        await navigator.clipboard.writeText(transResultText);
+        const btn = document.querySelector('.tcb-copy');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="width:13px;height:13px;"></i> Đã sao chép!';
+        lucide.createIcons();
+        if (navigator.vibrate) navigator.vibrate(30);
+        setTimeout(() => { btn.innerHTML = orig; lucide.createIcons(); }, 2000);
+    } catch(e) {
+        const box = document.getElementById('trans-result-box');
+        const range = document.createRange(); range.selectNode(box);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
+}
+
+async function transShare() {
+    if (!transResultText) return;
+    if (navigator.share) {
+        try { await navigator.share({ title: 'VTL Camera — Bản dịch', text: transResultText }); return; }
+        catch(e) {}
+    }
+    await transCopy();
 }
 
 // ── Drag-region on canvas ──────────────────────────────────────────────────────
