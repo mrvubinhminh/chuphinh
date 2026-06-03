@@ -37,18 +37,10 @@
         }
         .controls-layer {
             position: absolute; top: 0; left: 0; z-index: 20;
-            width: 100%; height: 100%; display: flex; flex-direction: column;
-            justify-content: space-between; pointer-events: none;
+            width: 100%; height: 100%;
+            pointer-events: none;
         }
-        .top-bar, .bottom-bar {
-            pointer-events: auto; padding: 16px 20px;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .top-bar { background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%); }
-        .bottom-bar {
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
-            padding-bottom: 40px;
-        }
+        /* top/bottom bar replaced by #top-strip and #bottom-bar */
         .shutter-btn {
             width: 76px; height: 76px; border-radius: 50%;
             background-color: white; border: 4px solid transparent;
@@ -140,24 +132,40 @@
             pointer-events: none; display: none; letter-spacing: 0.05em;
         }
 
-        /* ── Stamp mode picker ── */
+        /* ── Stamp picker panel ── */
         .stamp-option {
-            padding: 11px 20px; color: #fff; font-size: 0.85rem; cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
-            transition: background 0.15s;
+            padding: 10px 16px; color: #fff; font-size: 0.83rem; cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.07); white-space: nowrap;
+            transition: background 0.15s; display:flex; align-items:center; gap:10px;
         }
         .stamp-option:last-child { border-bottom: none; }
-        .stamp-option:hover { background: rgba(255,215,0,0.15); }
+        .stamp-option:active { background: rgba(255,215,0,0.15); }
         .stamp-option.selected { color: #fbbf24; font-weight: 700; }
+        .stamp-option.selected::after { content:'✓'; margin-left:auto; color:#fbbf24; }
+
+        /* style & position selector rows */
+        .stamp-seg-row { display:flex; gap:6px; padding:8px 12px; }
+        .stamp-seg {
+            flex:1; padding:8px 4px; border-radius:10px;
+            border:1px solid rgba(255,255,255,0.15);
+            background:rgba(255,255,255,0.05);
+            color:rgba(255,255,255,0.6); font-size:0.7rem; font-weight:600;
+            text-align:center; cursor:pointer; transition:all 0.15s;
+            display:flex; flex-direction:column; align-items:center; gap:3px;
+        }
+        .stamp-seg:active  { opacity:0.7; }
+        .stamp-seg.active  { background:rgba(251,191,36,0.18); border-color:rgba(251,191,36,0.6); color:#fbbf24; }
+        .stamp-seg .seg-icon { font-size:1.1rem; line-height:1; }
 
         /* ── Guidance panel ── */
         .guidance-panel {
-            pointer-events: auto; position: absolute; bottom: 145px; left: 50%; transform: translateX(-50%);
+            pointer-events: auto; position: absolute; bottom: 175px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); color: white;
-            padding: 14px 20px; border-radius: 16px; text-align: left;
-            width: 85%; max-width: 400px; font-size: 0.92rem; line-height: 1.5;
+            padding: 13px 18px; border-radius: 16px; text-align: left;
+            width: 88%; max-width: 400px; font-size: 0.88rem; line-height: 1.5;
             border: 1px solid rgba(255,215,0,0.3); transition: opacity 0.3s;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            opacity: 0; pointer-events: none; z-index: 23;
         }
 
         /* ── Flash ── */
@@ -376,6 +384,32 @@
             0%   { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(1.04); }
         }
+
+        /* ── Menu cells ── */
+        .menu-cell {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 6px; padding: 14px 6px 12px; border-radius: 14px;
+            cursor: pointer; transition: background 0.15s; position: relative;
+            color: rgba(255,255,255,0.75); user-select: none;
+        }
+        .menu-cell:active  { background: rgba(255,255,255,0.12); }
+        .menu-cell.active  { background: rgba(251,191,36,0.12); color: #fbbf24; }
+        .menu-cell svg     { width:24px; height:24px; flex-shrink:0; }
+        .menu-cell span    { font-size:0.68rem; font-weight:500; text-align:center; line-height:1.2; }
+        .menu-sub          { font-size:0.6rem; color:rgba(251,191,36,0.8); font-weight:700;
+                             position:absolute; top:8px; right:10px; }
+
+        /* Active chip badges on top strip */
+        .mode-chip {
+            display:flex; align-items:center; gap:4px;
+            background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.18);
+            border-radius:12px; padding:3px 9px;
+            color:rgba(255,255,255,0.8); font-size:0.65rem; font-weight:600;
+            backdrop-filter:blur(6px);
+        }
+        .mode-chip.amber { border-color:rgba(251,191,36,0.5); color:#fbbf24; }
+        .mode-chip.blue  { border-color:rgba(56,189,248,0.5); color:#7dd3fc; }
+        .mode-chip.green { border-color:rgba(52,211,153,0.5); color:#34d399; }
 
         /* ── QR Scanner ── */
         #qr-canvas { display:none; }
@@ -762,94 +796,180 @@
         </div>
     </div>
 
-    <!-- Stamp mode picker dropdown — độc lập, z-index cao nhất trong app -->
+    <!-- Stamp picker panel -->
     <div id="stamp-picker-inner" style="
-        display:none; position:absolute; top:70px; right:14px; z-index:45;
-        background:rgba(0,0,0,0.92); backdrop-filter:blur(12px);
-        border:1px solid rgba(255,215,0,0.4); border-radius:14px;
-        overflow:hidden; min-width:210px; pointer-events:auto;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        display:none; position:absolute; bottom:220px; right:14px; z-index:45;
+        background:rgba(10,10,14,0.96); backdrop-filter:blur(16px);
+        border:1px solid rgba(255,215,0,0.25); border-radius:18px;
+        overflow:hidden; width:clamp(260px,80vw,320px); pointer-events:auto;
+        box-shadow:0 12px 32px rgba(0,0,0,0.7);
     ">
-        <div style="padding:8px 16px 6px; font-size:0.7rem; color:rgba(255,215,0,0.75); font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.08);">Chế độ tem thời gian</div>
-        <div class="stamp-option selected" data-mode="0">🚫 Tắt</div>
-        <div class="stamp-option" data-mode="1">🕐 Chỉ giờ &amp; ngày</div>
-        <div class="stamp-option" data-mode="2">📍 Giờ + Địa chỉ</div>
-        <div class="stamp-option" data-mode="3">🛰 Đầy đủ (GPS + Địa chỉ)</div>
+        <!-- Header -->
+        <div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span style="font-size:0.7rem;color:rgba(255,215,0,0.8);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">📍 Tem Thời Gian & Vị Trí</span>
+            <button onclick="closeStampPicker()" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:1rem;line-height:1;">✕</button>
+        </div>
+
+        <!-- Content mode -->
+        <div style="padding:10px 16px 4px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;">Nội dung</div>
+        <div class="stamp-option selected" data-mode="0"><span style="font-size:1rem;">🚫</span> Tắt</div>
+        <div class="stamp-option" data-mode="1"><span style="font-size:1rem;">🕐</span> Chỉ giờ &amp; ngày</div>
+        <div class="stamp-option" data-mode="2"><span style="font-size:1rem;">📍</span> Giờ + Địa điểm</div>
+        <div class="stamp-option" data-mode="3"><span style="font-size:1rem;">🛰</span> Đầy đủ (GPS + Địa chỉ)</div>
+
+        <!-- Style -->
+        <div style="padding:10px 16px 2px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,0.07);margin-top:4px;">Phong cách</div>
+        <div class="stamp-seg-row">
+            <div class="stamp-seg active" data-style="film"   onclick="setStampStyle('film')">  <span class="seg-icon">🎞</span>Film</div>
+            <div class="stamp-seg"        data-style="glass"  onclick="setStampStyle('glass')"> <span class="seg-icon">🪟</span>Glass</div>
+            <div class="stamp-seg"        data-style="minimal"onclick="setStampStyle('minimal')"><span class="seg-icon">✦</span>Minimal</div>
+            <div class="stamp-seg"        data-style="bold"   onclick="setStampStyle('bold')">  <span class="seg-icon">■</span>Bold</div>
+        </div>
+
+        <!-- Position -->
+        <div style="padding:8px 16px 2px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.08em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,0.07);margin-top:2px;">Vị trí</div>
+        <div class="stamp-seg-row" style="gap:4px;">
+            <div class="stamp-seg" data-pos="tl" onclick="setStampPos('tl')"><span class="seg-icon">↖</span>Trên trái</div>
+            <div class="stamp-seg" data-pos="tr" onclick="setStampPos('tr')"><span class="seg-icon">↗</span>Trên phải</div>
+            <div class="stamp-seg active" data-pos="br" onclick="setStampPos('br')"><span class="seg-icon">↘</span>Dưới phải</div>
+            <div class="stamp-seg" data-pos="bl" onclick="setStampPos('bl')"><span class="seg-icon">↙</span>Dưới trái</div>
+        </div>
+        <div style="height:10px;"></div>
     </div>
 
-    <div class="controls-layer">
-        <div class="top-bar">
-            <div class="icon-btn" onclick="showRandomTip()" title="Mẹo chụp ảnh">
-                <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
+    <!-- ── Minimal top strip: tip + active-mode badges ── -->
+    <div id="top-strip" style="
+        position:absolute; top:0; left:0; right:0; z-index:22;
+        display:flex; justify-content:space-between; align-items:center;
+        padding: env(safe-area-inset-top,0px) 16px 0;
+        padding-top: max(env(safe-area-inset-top,0px), 12px);
+        pointer-events:none;
+    ">
+        <!-- active mode chips (sport/beauty/QR/etc.) -->
+        <div id="active-chips" style="display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;"></div>
+        <!-- tip button -->
+        <div class="icon-btn" onclick="showRandomTip()" style="pointer-events:auto;flex-shrink:0;" title="Mẹo">
+            <i data-lucide="lightbulb" class="w-4 h-4 text-yellow-400"></i>
+        </div>
+    </div>
+
+    <!-- ── Guidance panel ── -->
+    <div id="guidance-panel" class="guidance-panel" style="bottom:160px;">
+        <h3 id="guidance-title" class="font-bold text-yellow-400 mb-2 flex items-center gap-2 border-b border-gray-600 pb-1">
+            <i data-lucide="camera" class="w-4 h-4"></i> Sẵn sàng
+        </h3>
+        <p id="guidance-text" class="text-sm text-gray-200">
+            Đặt chủ thể vào <span class="text-yellow-400 font-bold">điểm vàng</span> để bức ảnh tự nhiên và hút mắt.
+        </p>
+    </div>
+
+    <!-- ── Bottom control bar ── -->
+    <div id="bottom-bar" style="
+        position:absolute; bottom:0; left:0; right:0; z-index:22;
+        background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 65%, transparent 100%);
+        padding-bottom: max(env(safe-area-inset-bottom,0px), 28px);
+        padding-top: 14px; padding-left: 20px; padding-right: 20px;
+        pointer-events:auto;
+    ">
+        <!-- Row 1: quick-access mode strip (ratio, grid) -->
+        <div id="quick-strip" style="display:flex;justify-content:center;gap:10px;margin-bottom:18px;">
+            <div id="ratio-btn" class="text-btn" onclick="cycleRatio()" style="font-size:0.78rem;padding:0 12px;height:32px;">FULL</div>
+            <div class="icon-btn" onclick="cycleGrid()" style="width:32px;height:32px;" title="Lưới">
+                <i data-lucide="grid-3x3" style="width:16px;height:16px;"></i>
             </div>
-            <div class="flex gap-2 flex-wrap justify-end">
-                <!-- Live Text (nhanh nhất) -->
-                <div id="live-text-btn" class="icon-btn" onclick="toggleLiveText()" title="Live Text — quét chữ trực tiếp siêu nhanh">
-                    <i data-lucide="type" class="w-5 h-5"></i>
-                </div>
-                <!-- OCR post-capture -->
-                <div id="ocr-btn" class="icon-btn" onclick="toggleOcrMode()" title="Quét văn bản từ ảnh đã chụp">
-                    <i data-lucide="scan-text" class="w-5 h-5"></i>
-                </div>
-                <!-- QR Scanner -->
-                <div id="qr-btn" class="icon-btn" onclick="toggleQrMode()" title="Quét mã QR tự động">
-                    <i data-lucide="qr-code" class="w-5 h-5"></i>
-                </div>
-                <!-- Sport / Action mode -->
-                <div id="sport-btn" class="icon-btn" onclick="toggleSportMode()" title="Sport / Action — chụp chuyển động sắc nét">
-                    <i data-lucide="zap" class="w-5 h-5"></i>
-                </div>
-                <!-- Resolution picker -->
-                <div id="res-btn" class="text-btn" onclick="cycleResolution()" title="Độ phân giải xuất ảnh">SD</div>
-                <!-- Stamp button -->
-                <div id="stamp-btn" class="icon-btn" onclick="toggleStampPicker()" title="Tem địa chỉ & giờ">
-                    <i data-lucide="map-pin" class="w-5 h-5"></i>
-                </div>
-                <div id="beauty-btn" class="icon-btn" onclick="cycleBeautyMode()" title="Làm đẹp (nhấn nhiều lần)">
-                    <i data-lucide="sparkles" class="w-5 h-5"></i>
-                </div>
-                <div id="depth-btn" class="icon-btn" onclick="toggleDepthMode()" title="Xóa phông">
-                    <i data-lucide="aperture" class="w-5 h-5"></i>
-                </div>
-                <div id="ratio-btn" class="text-btn" onclick="cycleRatio()">FULL</div>
-                <div class="icon-btn" onclick="cycleGrid()" title="Đổi lưới">
-                    <i data-lucide="grid-3x3" class="w-5 h-5"></i>
-                </div>
-            </div>
+            <div id="res-btn" class="text-btn" onclick="cycleResolution()" style="font-size:0.78rem;padding:0 12px;height:32px;">SD</div>
         </div>
 
-        <div id="guidance-panel" class="guidance-panel">
-            <h3 id="guidance-title" class="font-bold text-yellow-400 mb-2 flex items-center gap-2 border-b border-gray-600 pb-1">
-                <i data-lucide="camera" class="w-4 h-4"></i> Khởi động máy ảnh
-            </h3>
-            <p id="guidance-text" class="text-sm text-gray-200">
-                Đặt chủ thể vào các <span class="text-yellow-400 font-bold">điểm vàng</span> để bức ảnh tự nhiên và hút mắt nhất.
-            </p>
-        </div>
+        <!-- Row 2: main controls -->
+        <div style="display:flex;justify-content:space-between;align-items:center;">
 
-        <div class="bottom-bar">
-            <!-- Thumbnail / Gallery trigger -->
-            <div id="gallery-trigger" style="width:56px;height:56px;cursor:pointer;flex-shrink:0;" onclick="openGallery()">
-                <div id="last-photo-preview" style="display:none;width:56px;height:56px;">
-                    <div style="position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,0.6);">
+            <!-- Gallery thumbnail -->
+            <div id="gallery-trigger" style="width:54px;height:54px;cursor:pointer;flex-shrink:0;" onclick="openGallery()">
+                <div id="last-photo-preview" style="display:none;width:54px;height:54px;">
+                    <div style="position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,0.55);">
                         <img id="thumb-img" src="" style="width:100%;height:100%;object-fit:cover;display:block;">
-                        <div id="photo-count-badge" style="
-                            position:absolute;bottom:3px;right:3px;
-                            background:rgba(0,0,0,0.7);color:#fbbf24;
-                            font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:8px;
-                        ">1</div>
+                        <div id="photo-count-badge" style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.75);color:#fbbf24;font-size:0.6rem;font-weight:700;padding:1px 4px;border-radius:6px;">1</div>
                     </div>
                 </div>
-                <div id="last-photo-placeholder" style="width:56px;height:56px;"></div>
+                <div id="last-photo-placeholder" style="width:54px;height:54px;"></div>
             </div>
 
+            <!-- Shutter -->
             <div class="shutter-btn" onclick="takePhoto()"></div>
 
-            <div class="icon-btn" style="width:56px;height:56px;" onclick="switchCamera()">
-                <i data-lucide="switch-camera" class="w-6 h-6"></i>
+            <!-- Right: flip + menu -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:54px;">
+                <div class="icon-btn" onclick="switchCamera()" style="width:40px;height:40px;" title="Đổi camera">
+                    <i data-lucide="switch-camera" style="width:18px;height:18px;"></i>
+                </div>
+                <div id="menu-btn" class="icon-btn" onclick="toggleMenu()" style="width:40px;height:40px;border-color:rgba(255,255,255,0.35);" title="Menu">
+                    <i data-lucide="sliders-horizontal" style="width:17px;height:17px;"></i>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- ── Slide-up menu panel ── -->
+    <div id="cam-menu" style="
+        position:absolute; bottom:0; left:0; right:0; z-index:30;
+        background: rgba(10,10,12,0.97); backdrop-filter:blur(20px);
+        border-top: 1px solid rgba(255,255,255,0.1);
+        border-radius: 22px 22px 0 0;
+        padding-bottom: max(env(safe-area-inset-bottom,0px), 24px);
+        transform: translateY(100%);
+        transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+        pointer-events:auto;
+    ">
+        <!-- drag handle -->
+        <div style="display:flex;justify-content:center;padding:12px 0 4px;">
+            <div style="width:36px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;"></div>
+        </div>
+
+        <!-- Section: Chụp ảnh -->
+        <div style="padding:6px 20px 8px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;">Chụp ảnh</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:0 12px;">
+            <div class="menu-cell" id="mc-beauty" onclick="cycleBeautyMode();updateChips();">
+                <i data-lucide="sparkles"></i><span>Làm đẹp</span>
+                <div id="mc-beauty-sub" class="menu-sub"></div>
+            </div>
+            <div class="menu-cell" id="mc-depth" onclick="toggleDepthMode();updateChips();">
+                <i data-lucide="aperture"></i><span>Xóa phông</span>
+            </div>
+            <div class="menu-cell" id="mc-sport" onclick="toggleSportMode();updateChips();">
+                <i data-lucide="zap"></i><span>Sport</span>
+            </div>
+            <div class="menu-cell" id="mc-stamp" onclick="toggleStampPicker();">
+                <i data-lucide="map-pin"></i><span>Tem vị trí</span>
+                <div id="mc-stamp-sub" class="menu-sub"></div>
+            </div>
+        </div>
+
+        <!-- Section: Quét & nhận diện -->
+        <div style="padding:12px 20px 8px;font-size:0.62rem;color:rgba(255,255,255,0.3);letter-spacing:0.1em;text-transform:uppercase;">Quét & nhận diện</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:0 12px;">
+            <div class="menu-cell" id="mc-livetext" onclick="toggleLiveText();updateChips();">
+                <i data-lucide="type"></i><span>Live Text</span>
+            </div>
+            <div class="menu-cell" id="mc-qr" onclick="toggleQrMode();updateChips();">
+                <i data-lucide="qr-code"></i><span>QR Code</span>
+            </div>
+            <div class="menu-cell" id="mc-ocr" onclick="toggleOcrMode();">
+                <i data-lucide="scan-text"></i><span>Quét chữ</span>
+            </div>
+            <div class="menu-cell" onclick="showRandomTip();toggleMenu();">
+                <i data-lucide="lightbulb" style="color:#fbbf24;"></i><span>Mẹo chụp</span>
+            </div>
+        </div>
+
+        <div style="height:10px;"></div>
+    </div>
+
+    <!-- Menu backdrop -->
+    <div id="menu-backdrop" onclick="toggleMenu()" style="
+        display:none; position:absolute; inset:0; z-index:29;
+        background:rgba(0,0,0,0); pointer-events:auto;
+    "></div>
+
 </div>
 
 <!-- ── Preview modal ── -->
@@ -1093,8 +1213,10 @@ let gallery = [];
 let lightboxIndex = 0;
 
 // ─── Stamp / Location ─────────────────────────────────────────────────────────
-// stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
+/// stampMode: 0=off, 1=time only, 2=time+addr, 3=full GPS+addr
 let stampMode     = 0;
+let stampStyle    = 'film';    // 'film' | 'glass' | 'minimal' | 'bold'
+let stampPos      = 'br';      // 'tl' | 'tr' | 'bl' | 'br'
 let geoCoords     = null;   // { lat, lon }
 let geoAddress    = '';     // full address string
 let geoPlaceName  = '';     // short landmark / street name for stamp
@@ -1122,6 +1244,7 @@ function setStampMode(mode) {
     }
     // close picker
     closeStampPicker();
+    updateChips();
     showGuidanceMsgs(
         '<i data-lucide="map-pin" class="w-4 h-4 text-yellow-400"></i> Tem Địa Chỉ & Giờ',
         stampModeDesc(mode)
@@ -1231,139 +1354,182 @@ document.querySelectorAll('.stamp-option').forEach(el => {
     el.addEventListener('click', () => setStampMode(parseInt(el.dataset.mode)));
 });
 
-// ─── Stamp bake-in on canvas — Film Camera Style ──────────────────────────────
-function bakeStamp(ctx, w, h) {
+function setStampStyle(s) {
+    stampStyle = s;
+    document.querySelectorAll('[data-style]').forEach(el =>
+        el.classList.toggle('active', el.dataset.style === s));
+}
+function setStampPos(p) {
+    stampPos = p;
+    document.querySelectorAll('[data-pos]').forEach(el =>
+        el.classList.toggle('active', el.dataset.pos === p));
+}
+
+// ─── Stamp bake-in on canvas — multi-style ────────────────────────────────────
+function bakeStamp(canvas_or_ctx, w, h, srcCanvas) {
+    // Accept either a ctx (old call) or a canvas for glass blur
+    const ctx = (canvas_or_ctx instanceof CanvasRenderingContext2D) ? canvas_or_ctx : canvas_or_ctx.getContext('2d');
+    const canvasRef = (canvas_or_ctx instanceof HTMLCanvasElement) ? canvas_or_ctx : null;
     if (stampMode === 0) return;
 
-    const now   = new Date();
-    const HH    = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
-    const SS    = now.toLocaleTimeString('vi-VN', { second:'2-digit' }).replace(/^.*:/, ':');
-    const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
-    // weekday short
-    const days  = ['CN','T2','T3','T4','T5','T6','T7'];
-    const wday  = days[now.getDay()];
+    const now      = new Date();
+    const HH       = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
+    const SS       = ':' + String(now.getSeconds()).padStart(2,'0');
+    const dateStr  = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const days     = ['CN','T2','T3','T4','T5','T6','T7'];
+    const wday     = days[now.getDay()];
+    let   place    = '', coord = '';
+    if (stampMode >= 2) place = geoPlaceName || geoAddress || '';
+    if (stampMode === 3 && geoCoords) coord = `${geoCoords.lat.toFixed(5)}°N  ${geoCoords.lon.toFixed(5)}°E`;
 
-    // Build address lines
-    let placeLine = '', coordLine = '';
-    if (stampMode >= 2) {
-        placeLine = geoPlaceName || geoAddress || (geoFetching ? '...' : '');
-    }
-    if (stampMode === 3 && geoCoords) {
-        coordLine = `${geoCoords.lat.toFixed(5)}° N  ${geoCoords.lon.toFixed(5)}° E`;
-    }
+    // ── Sizes ──
+    const unit  = Math.max(18, Math.round(w * 0.024));
+    const tBig  = unit * 1.85;
+    const tMed  = unit * 0.98;
+    const tSml  = unit * 0.80;
+    const pad   = unit * 1.05;
+    const gap   = unit * 0.50;
+    const r     = unit * 0.55;  // corner radius
 
-    // ── Sizes (responsive to image width) ──
-    const unit   = Math.max(20, Math.round(w * 0.025));   // base unit
-    const tBig   = unit * 1.9;   // large time digits
-    const tMed   = unit * 1.0;   // date / small text
-    const tSml   = unit * 0.82;  // coords / address
-    const pad    = unit * 1.1;
-    const gap    = unit * 0.55;
+    const fBig  = `700 ${tBig}px 'SF Mono','Courier New',monospace`;
+    const fMed  = `500 ${tMed}px -apple-system,BlinkMacSystemFont,sans-serif`;
+    const fSml  = `400 ${tSml}px -apple-system,BlinkMacSystemFont,sans-serif`;
+    const fCoord= `400 ${tSml*0.85}px 'SF Mono','Courier New',monospace`;
 
-    const fontBig  = `700 ${tBig}px 'SF Mono', 'Courier New', monospace`;
-    const fontMed  = `500 ${tMed}px -apple-system, sans-serif`;
-    const fontSml  = `400 ${tSml}px -apple-system, sans-serif`;
-
-    // ── Measure all text widths ──
+    // ── Measure ──
     ctx.save();
-    ctx.font = fontBig;
-    const wHH   = ctx.measureText(HH).width;
-    const wSS   = ctx.measureText(SS).width;
-    ctx.font = fontMed;
+    ctx.font = fBig;
+    const wHH = ctx.measureText(HH).width, wSS = ctx.measureText(SS).width;
+    ctx.font = fMed;
     const wDate = ctx.measureText(`${wday}  ${dateStr}`).width;
-    ctx.font = fontSml;
-    const wPlace = placeLine  ? ctx.measureText('⬥ ' + placeLine).width  : 0;
-    const wCoord = coordLine  ? ctx.measureText(coordLine).width          : 0;
+    ctx.font = fSml;
+    const wPlace = place ? ctx.measureText(place).width + tSml*0.7 : 0;
+    ctx.font = fCoord;
+    const wCoord = coord ? ctx.measureText(coord).width : 0;
     ctx.restore();
 
-    // Block width = max of all rows + padding
-    const contentW = Math.max(wHH + wSS + gap, wDate, wPlace, wCoord);
+    const contentW = Math.max(wHH + wSS + gap*0.4, wDate, wPlace, wCoord);
     const boxW     = contentW + pad * 2;
+    let   boxH     = pad * 0.9 + tBig + gap*0.45 + tMed + pad * 0.9;
+    if (place || coord) boxH += gap * 0.5 + (place ? tSml + gap*0.3 : 0) + (coord ? tSml*0.85 + gap*0.25 : 0);
 
-    // Block height
-    let boxH = pad + tBig + gap * 0.5 + tMed + pad;   // time + date rows
-    if (placeLine)  boxH += gap * 0.6 + tSml;
-    if (coordLine)  boxH += gap * 0.4 + tSml;
+    // ── Position ──
+    const margin = pad * 0.85;
+    let bx = (stampPos === 'tl' || stampPos === 'bl') ? margin : w - boxW - margin;
+    let by = (stampPos === 'tl' || stampPos === 'tr') ? margin : h - boxH - margin;
 
-    // ── Position: bottom-right with margin ──
-    const margin = pad * 0.9;
-    const bx = w - boxW - margin;
-    const by = h - boxH - margin;
-
-    // ── Background: semi-transparent dark with subtle gradient ──
+    // ── Background by style ──
     ctx.save();
-    const grad = ctx.createLinearGradient(bx, by, bx, by + boxH);
-    grad.addColorStop(0, 'rgba(10,8,4,0.82)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.90)');
-    ctx.fillStyle = grad;
-    roundRect(ctx, bx, by, boxW, boxH, unit * 0.55);
-    ctx.fill();
+    const S = stampStyle;
 
-    // Subtle amber left-border accent
-    ctx.fillStyle = '#f59e0b';
-    roundRect(ctx, bx, by, unit * 0.22, boxH, unit * 0.11);
-    ctx.fill();
+    if (S === 'film') {
+        // Dark gradient + amber left bar
+        const g = ctx.createLinearGradient(bx, by, bx, by+boxH);
+        g.addColorStop(0, 'rgba(8,6,2,0.84)'); g.addColorStop(1, 'rgba(0,0,0,0.92)');
+        ctx.fillStyle = g;
+        ctx.globalAlpha = 1;
+        roundRect(ctx, bx, by, boxW, boxH, r); ctx.fill();
+        ctx.fillStyle = '#f59e0b';
+        roundRect(ctx, bx, by, unit*0.2, boxH, unit*0.1); ctx.fill();
+
+    } else if (S === 'glass') {
+        // Frosted glass: blur the image under the stamp then overlay
+        if (canvasRef || srcCanvas) {
+            const src = srcCanvas || canvasRef;
+            // Downsample region for blur
+            const blurR = unit * 0.9;
+            const tmpC = document.createElement('canvas');
+            tmpC.width = Math.round(boxW); tmpC.height = Math.round(boxH);
+            const tx2 = tmpC.getContext('2d');
+            tx2.filter = `blur(${blurR}px)`;
+            tx2.drawImage(src, bx, by, boxW, boxH, 0, 0, boxW, boxH);
+            tx2.filter = 'none';
+            // Overlay tint
+            tx2.fillStyle = 'rgba(255,255,255,0.18)';
+            tx2.fillRect(0,0,boxW,boxH);
+            // Draw back
+            ctx.save();
+            roundRect(ctx, bx, by, boxW, boxH, r);
+            ctx.clip();
+            ctx.drawImage(tmpC, bx, by);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            roundRect(ctx, bx, by, boxW, boxH, r); ctx.fill();
+        }
+        // Border
+        ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = Math.max(1, unit*0.05);
+        roundRect(ctx, bx, by, boxW, boxH, r); ctx.stroke();
+
+    } else if (S === 'minimal') {
+        // No background — just shadow on text
+
+    } else if (S === 'bold') {
+        // Solid amber block
+        ctx.fillStyle = '#f59e0b';
+        roundRect(ctx, bx, by, boxW, boxH, r); ctx.fill();
+    }
     ctx.restore();
 
-    // ── Draw time: large HH:MM in amber + :SS in dimmer ──
+    // ── Text colors per style ──
+    const cBig   = S==='bold' ? '#000'              : S==='glass' ? '#fff'             : '#f59e0b';
+    const cSec   = S==='bold' ? 'rgba(0,0,0,0.6)'   : S==='glass' ? 'rgba(255,255,255,0.65)' : 'rgba(245,158,11,0.55)';
+    const cDate  = S==='bold' ? 'rgba(0,0,0,0.85)'  : 'rgba(255,255,255,0.78)';
+    const cDate2 = S==='bold' ? 'rgba(0,0,0,0.55)'  : 'rgba(255,255,255,0.50)';
+    const cPlace = S==='bold' ? '#000'               : '#fff';
+    const cPin   = S==='bold' ? 'rgba(0,0,0,0.7)'   : S==='glass' ? 'rgba(255,255,255,0.6)' : '#f59e0b';
+    const cCoord = S==='bold' ? 'rgba(0,0,0,0.45)'  : 'rgba(255,255,255,0.35)';
+    const cSep   = S==='bold' ? 'rgba(0,0,0,0.2)'   : S==='glass' ? 'rgba(255,255,255,0.2)' : 'rgba(245,158,11,0.22)';
+    const shadowCol = S==='glass'||S==='minimal' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.0)';
+
+    // ── Draw text ──
     const tx = bx + pad;
-    let   ty = by + pad + tBig * 0.88;
-
+    let   ty = by + pad*0.9 + tBig*0.9;
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+    ctx.shadowColor = shadowCol; ctx.shadowBlur = S==='minimal'?8:3; ctx.shadowOffsetX=0; ctx.shadowOffsetY=1;
 
-    ctx.font      = fontBig;
-    ctx.fillStyle = '#f59e0b';                    // amber
+    // Time
+    ctx.font = fBig; ctx.fillStyle = cBig;
     ctx.fillText(HH, tx, ty);
+    ctx.fillStyle = cSec;
+    ctx.fillText(SS, tx + wHH + gap*0.25, ty);
 
-    ctx.fillStyle = 'rgba(245,158,11,0.55)';       // dimmer seconds
-    ctx.fillText(SS, tx + wHH + gap * 0.3, ty);
+    // Date
+    ty += gap*0.45 + tMed;
+    ctx.font = fMed;
+    ctx.fillStyle = cDate; ctx.fillText(wday, tx, ty);
+    ctx.fillStyle = cDate2; ctx.fillText(`  ${dateStr}`, tx + ctx.measureText(wday).width, ty);
 
-    // ── Date row ──
-    ty += gap * 0.5 + tMed;
-    ctx.font      = fontMed;
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText(wday, tx, ty);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(`  ${dateStr}`, tx + ctx.measureText(wday).width, ty);
-
-    // ── Separator ──
-    if (placeLine || coordLine) {
-        ty += gap * 0.7;
-        ctx.strokeStyle = 'rgba(245,158,11,0.25)';
-        ctx.lineWidth   = Math.max(1, unit * 0.06);
-        ctx.beginPath();
-        ctx.moveTo(tx, ty); ctx.lineTo(bx + boxW - pad, ty);
-        ctx.stroke();
-        ty += gap * 0.5;
+    // Separator
+    if (place || coord) {
+        ty += gap*0.6;
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = cSep; ctx.lineWidth = Math.max(1, unit*0.055);
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(bx+boxW-pad, ty); ctx.stroke();
+        ctx.shadowBlur = S==='minimal'?8:3;
+        ty += gap*0.45;
     }
 
-    // ── Place name ──
-    if (placeLine) {
+    // Place
+    if (place) {
         ty += tSml;
-        ctx.font = fontSml;
+        ctx.font = fSml;
+        const maxPW = boxW - pad*2 - tSml*0.7;
+        let pl = place;
+        while (pl.length > 3 && ctx.measureText(pl).width > maxPW) pl = pl.slice(0,-1);
+        if (pl !== place) pl = pl.trimEnd() + '…';
         // pin dot
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.arc(tx + tSml*0.28, ty - tSml*0.32, tSml*0.22, 0, Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.80)';
-        // truncate if too long
-        const maxPlaceW = boxW - pad*2 - tSml*0.7;
-        let place = placeLine;
-        ctx.font = fontSml;
-        while (place.length > 3 && ctx.measureText(place).width > maxPlaceW)
-            place = place.slice(0, -1);
-        if (place !== placeLine) place = place.trimEnd() + '…';
-        ctx.fillText(place, tx + tSml * 0.65, ty);
+        ctx.fillStyle = cPin;
+        ctx.beginPath(); ctx.arc(tx+tSml*0.26, ty-tSml*0.3, tSml*0.2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = cPlace;
+        ctx.fillText(pl, tx + tSml*0.6, ty);
     }
 
-    // ── GPS coords ──
-    if (coordLine) {
-        ty += gap * 0.4 + tSml;
-        ctx.font      = `400 ${tSml * 0.88}px 'SF Mono','Courier New',monospace`;
-        ctx.fillStyle = 'rgba(255,255,255,0.38)';
-        ctx.fillText(coordLine, tx, ty);
+    // Coord
+    if (coord) {
+        ty += (place ? gap*0.3 : 0) + tSml*0.85;
+        ctx.font = fCoord; ctx.fillStyle = cCoord;
+        ctx.fillText(coord, tx, ty);
     }
 
     ctx.restore();
@@ -1843,13 +2009,13 @@ async function takePhoto() {
             }
             // final sharpening pass after upscale
             unsharpMask(hiCanvas, 0.35, 1.2, 3);
-            bakeStamp(hiCtx, hiW, hiH);
+            bakeStamp(hiCanvas, hiW, hiH);
             finalCanvas = hiCanvas;
         } else {
-            bakeStamp(ctx, cropW, cropH);
+            bakeStamp(canvasElement, cropW, cropH);
         }
     } else {
-        bakeStamp(ctx, cropW, cropH);
+        bakeStamp(canvasElement, cropW, cropH);
     }
 
     // ── Step 7: Flash & export ─────────────────────────────────────────────────
@@ -2161,6 +2327,76 @@ function escapeHtml(str) {
 // Pause QR scan while preview / gallery modal is open (perf)
 const _origShowModal   = typeof showModal   !== 'undefined' ? showModal   : null;
 const _origOpenGallery = typeof openGallery !== 'undefined' ? openGallery : null;
+
+// ─── Menu & chips ─────────────────────────────────────────────────────────────
+let menuOpen = false;
+
+function toggleMenu() {
+    menuOpen = !menuOpen;
+    const panel   = document.getElementById('cam-menu');
+    const backdrop= document.getElementById('menu-backdrop');
+    const btn     = document.getElementById('menu-btn');
+    panel.style.transform   = menuOpen ? 'translateY(0)' : 'translateY(100%)';
+    backdrop.style.display  = menuOpen ? 'block' : 'none';
+    btn.classList.toggle('btn-active', menuOpen);
+    if (menuOpen) {
+        syncMenuCells();
+        lucide.createIcons();
+    }
+}
+
+function syncMenuCells() {
+    const cells = {
+        'mc-beauty':   beautyLevel > 0,
+        'mc-depth':    isDepthMode,
+        'mc-sport':    isSportMode,
+        'mc-livetext': ltActive,
+        'mc-qr':       isQrMode,
+    };
+    Object.entries(cells).forEach(([id, active]) => {
+        document.getElementById(id)?.classList.toggle('active', active);
+    });
+    const bSub  = document.getElementById('mc-beauty-sub');
+    const bLabels = ['','×1','×2','×4'];
+    if (bSub) bSub.textContent = beautyLevel > 0 ? bLabels[beautyLevel] : '';
+    const sSub = document.getElementById('mc-stamp-sub');
+    const sLabels = ['','⏱','📍','🛰'];
+    if (sSub) sSub.textContent = stampMode > 0 ? sLabels[stampMode] : '';
+}
+
+// Active mode chips shown on top strip while menu is closed
+function updateChips() {
+    const area = document.getElementById('active-chips');
+    if (!area) return;
+    const chips = [];
+    if (beautyLevel > 0)  chips.push({ label:`✨ ×${[0,1,2,4][beautyLevel]}`, cls:'amber' });
+    if (isDepthMode)      chips.push({ label:'⬤ Portrait', cls:'amber' });
+    if (isSportMode)      chips.push({ label:'⚡ Sport', cls:'green' });
+    if (isQrMode)         chips.push({ label:'▣ QR', cls:'blue' });
+    if (ltActive)         chips.push({ label:'T Live', cls:'blue' });
+    if (stampMode > 0)    chips.push({ label:['','⏱','📍','🛰'][stampMode], cls:'amber' });
+    area.innerHTML = chips.map(c =>
+        `<div class="mode-chip ${c.cls}">${c.label}</div>`
+    ).join('');
+    // also sync menu if open
+    if (menuOpen) syncMenuCells();
+}
+
+// Reposition stamp picker to appear above the menu panel
+function toggleStampPicker() {
+    stampPickerOpen = !stampPickerOpen;
+    const inner = document.getElementById('stamp-picker-inner');
+    inner.style.display = stampPickerOpen ? 'block' : 'none';
+    if (stampPickerOpen) {
+        // position above menu panel bottom area
+        inner.style.bottom = '220px';
+        inner.style.top    = 'auto';
+        inner.style.right  = '16px';
+        setTimeout(() => {
+            document.addEventListener('pointerdown', outsidePicker, { once: true });
+        }, 120);
+    }
+}
 
 // ─── OCR Editor (static image, post-capture) ──────────────────────────────────
 let ocrWorker      = null;
