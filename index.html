@@ -6,6 +6,7 @@
     <title>Golden Ratio Camera Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
@@ -30,6 +31,7 @@
         #camera-feed {
             width: 100%; height: 100%; object-fit: cover;
             position: absolute; top: 0; left: 0;
+            transition: filter 0.3s ease;
         }
 
         .overlay-layer {
@@ -71,6 +73,7 @@
         }
         .text-btn { border-radius: 20px; width: auto; padding: 0 16px; font-weight: 600; font-size: 0.9rem; }
         .icon-btn:hover, .text-btn:hover { background: rgba(0, 0, 0, 0.7); }
+        .btn-active { color: #fbbf24 !important; border-color: #fbbf24 !important; }
 
         .phi-grid, .fibonacci-spiral { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         .phi-grid.active, .fibonacci-spiral.active { display: block; }
@@ -97,19 +100,12 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
-        #preview-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: black; z-index: 50; flex-direction: column;
-        }
-        #preview-image { flex: 1; width: 100%; object-fit: contain; }
-        
         .flash-effect {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: white; opacity: 0; z-index: 40; pointer-events: none;
         }
         @keyframes flashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* Hiệu ứng Chiều sâu */
         .depth-effect-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -118,7 +114,23 @@
             pointer-events: none; z-index: 5; display: none;
         }
         .depth-effect-overlay.active { display: block; }
-        .btn-active { color: #fbbf24 !important; border-color: #fbbf24 !important; }
+        
+        #preview-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 50; flex-direction: column;
+        }
+        #preview-image { flex: 1; width: 100%; object-fit: contain; }
+
+        #saving-overlay {
+            display: none; position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.7); z-index: 100;
+            justify-content: center; align-items: center; flex-direction: column; color: white;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%; border-top-color: #fbbf24; animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -152,6 +164,11 @@
                 <i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i>
             </div>
             <div class="flex gap-3">
+                <!-- Nút Làm Đẹp -->
+                <div id="beauty-btn" class="icon-btn" onclick="toggleBeautyMode()" title="Làm mịn và sáng da">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <!-- Nút Xóa Phông -->
                 <div id="depth-btn" class="icon-btn" onclick="toggleDepthMode()" title="Chân dung (Xóa phông)">
                     <i data-lucide="aperture" class="w-5 h-5"></i>
                 </div>
@@ -186,14 +203,25 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Modal Xem trước và Lưu -->
 <div id="preview-modal">
-    <div class="p-4 flex justify-between items-center bg-black bg-opacity-90 text-white w-full">
-        <button onclick="closeModal()" class="text-lg flex items-center gap-2 px-2 py-1"><i data-lucide="chevron-left"></i> Đóng</button>
-        <button onclick="savePhoto()" class="bg-yellow-500 text-black px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2">LƯU ẢNH <i data-lucide="download" class="w-4 h-4"></i></button>
+    <div class="p-4 flex justify-between items-center bg-black bg-opacity-90 text-white w-full z-10 relative">
+        <button onclick="closeModal()" class="text-lg flex items-center gap-2 px-2 py-1"><i data-lucide="chevron-left"></i> Quay lại</button>
+        <button onclick="savePhotoToAlbum()" class="bg-yellow-500 text-black px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">LƯU VÀO MÁY <i data-lucide="share" class="w-4 h-4"></i></button>
     </div>
-    <div class="flex-1 flex justify-center items-center overflow-hidden">
-        <img id="preview-image" src="" alt="Captured">
+    
+    <div class="flex-1 flex justify-center items-center overflow-hidden relative">
+        <img id="preview-image" src="" alt="Captured" class="max-h-full">
+        <!-- Hướng dẫn lưu trên iOS -->
+        <div id="ios-save-hint" class="absolute bottom-10 bg-black bg-opacity-70 text-white text-xs px-4 py-2 rounded-full hidden">
+            Chọn "Save Image" (Lưu hình ảnh) để đưa vào Album
+        </div>
+    </div>
+
+    <!-- Màn hình Loading xử lý ảnh trước khi share -->
+    <div id="saving-overlay">
+        <div class="spinner mb-3"></div>
+        <div class="font-bold">Đang xử lý ảnh độ phân giải cao...</div>
     </div>
 </div>
 
@@ -211,8 +239,10 @@
     let currentGrid = 1;
     let guidanceVisible = true;
     let capturedDataUrl = "";
+    let capturedBlob = null;
     let guidanceTimeout = null;
     let isDepthMode = false;
+    let isBeautyMode = false;
 
     const ratios = [
         { name: 'FULL', value: 'full' },
@@ -222,54 +252,91 @@
     ];
     let currentRatioIndex = 0;
 
-    // --- KHO TÀNG MẸO NHIẾP ẢNH ---
     const expertTips = [
-        "<b>Ánh sáng là tất cả:</b> Tận dụng 'Giờ vàng' (lúc bình minh hoặc hoàng hôn) để có ánh sáng vệt đổ dài mềm mại, ấm áp.",
-        "<b>Khoảng trống không gian (Lead Room):</b> Nếu chủ thể đang nhìn hoặc bước đi về một hướng, hãy chừa không gian phía trước họ nhiều hơn phía sau lưng.",
-        "<b>Đường dẫn (Leading Lines):</b> Tìm kiếm con đường, hàng rào, vạch kẻ đường để tạo thành một 'mũi tên' thị giác dẫn mắt thẳng vào chủ thể chính.",
-        "<b>Khung trong khung (Framing):</b> Hãy dùng cành cây, ô cửa sổ, vòm cổng để làm một khung viền tự nhiên bao quanh chủ thể, tạo độ sâu 3D.",
-        "<b>Dọn dẹp hậu cảnh:</b> Trước khi bấm máy, hãy quét mắt nhìn phông nền. Tránh để các đường dây điện hoặc nhánh cây 'mọc' ngang đầu chủ thể.",
-        "<b>Thay đổi góc độ (Low Angle):</b> Đừng chỉ đứng chụp ngang tầm mắt. Hãy thử ngồi thấp xuống, hắt máy ảnh lên để chủ thể trông uy nghi, chân dài và nổi bật trên nền trời.",
-        "<b>Tiền cảnh mờ ảo (Foreground):</b> Đưa ống kính sát vào một chiếc lá, bông hoa hoặc mặt bàn để tạo một lớp tiền cảnh mờ, bức hình sẽ lập tức có chiều sâu điện ảnh.",
-        "<b>Tương phản màu sắc:</b> Đặt chủ thể mặc đồ màu nóng (Cam, Đỏ) nổi bật trên phông nền màu lạnh (Xanh da trời, Xanh lá cây) để tạo sức hút thị giác.",
-        "<b>Góc chụp Top-down (Flat Lay):</b> Khi chụp đồ ăn hoặc sản phẩm, hãy thử chuyển sang tỉ lệ 1:1, đưa máy ảnh thẳng góc 90 độ từ trên xuống để tạo sự sắp đặt gọn gàng.",
-        "<b>Đừng quên ánh mắt:</b> Khi chụp chân dung, điểm lấy nét (chấm vàng) bắt buộc phải nằm ở 'Con mắt' gần với ống kính nhất của người mẫu."
+        "<b>Ánh sáng là tất cả:</b> Tận dụng 'Giờ vàng' lúc bình minh/hoàng hôn để có ánh sáng mềm mại.",
+        "<b>Khoảng trống không gian (Lead Room):</b> Nếu chủ thể đang nhìn về một hướng, hãy chừa không gian phía trước họ nhiều hơn.",
+        "<b>Đường dẫn (Leading Lines):</b> Dùng đường phố, hàng rào để dẫn ánh mắt người xem thẳng vào chủ thể.",
+        "<b>Khung trong khung (Framing):</b> Dùng cành cây, ô cửa sổ tạo khung viền tự nhiên bao quanh chủ thể.",
+        "<b>Dọn dẹp hậu cảnh:</b> Tránh để các đường dây điện hoặc nhánh cây 'mọc' ngang đầu chủ thể.",
+        "<b>Thay đổi góc độ:</b> Thử ngồi thấp xuống, hắt máy ảnh lên để chủ thể trông uy nghi hơn.",
+        "<b>Tiền cảnh mờ ảo:</b> Đưa ống kính sát vào một chiếc lá, mặt bàn để tạo lớp tiền cảnh mờ, ảnh sẽ có chiều sâu.",
+        "<b>Tương phản màu sắc:</b> Đặt chủ thể màu nóng nổi bật trên phông nền màu lạnh.",
+        "<b>Góc chụp Top-down:</b> Khi chụp đồ ăn, chuyển sang tỉ lệ 1:1, đưa máy ảnh thẳng góc 90 độ từ trên xuống.",
+        "<b>Điểm lấy nét:</b> Khi chụp chân dung, điểm vàng bắt buộc phải nằm ở 'Con mắt' gần ống kính nhất."
     ];
 
     const gridTips = {
-        0: "<b>Chế độ Tự do:</b> Không có lưới, hãy tự cảm nhận không gian, ánh sáng và góc độ theo bản năng nghệ thuật của bạn.",
-        1: "<b>Phi Grid (1:1.618):</b> Đặt mắt người (chân dung) hoặc đường chân trời (phong cảnh) vào các <span class='text-yellow-400 font-bold'>điểm vàng</span> để ảnh cân bằng tuyệt đối.",
-        2: "<b>Xoắn Ốc Fibonacci:</b> Đặt chi tiết chủ đạo vào tâm xoắn ốc, để các chi tiết phụ trôi lượn theo đường cong lớn ra ngoài."
+        0: "<b>Chế độ Tự do:</b> Không có lưới, tự cảm nhận không gian, ánh sáng.",
+        1: "<b>Phi Grid (1:1.618):</b> Đặt mắt người (chân dung) hoặc đường chân trời (phong cảnh) vào các <span class='text-yellow-400 font-bold'>điểm vàng</span>.",
+        2: "<b>Xoắn Ốc Fibonacci:</b> Đặt chi tiết chủ đạo vào tâm xoắn ốc."
     };
 
     const ratioTips = {
-        'FULL': "<b>Tỉ lệ FULL:</b> Tận dụng toàn bộ cảm biến. Phù hợp chụp không gian kiến trúc rộng, hoặc các góc ảnh sáng tạo bứt phá.",
-        '4:3': "<b>Tỉ lệ 4:3:</b> Khung hình nhiếp ảnh kinh điển. Hoàn hảo để chụp chân dung, ảnh đời thường (street style) và phong cảnh tiêu chuẩn.",
-        '16:9': "<b>Tỉ lệ 16:9:</b> Khung hình điện ảnh (Cinematic). Rất tuyệt để chụp phong cảnh rộng bao la hoặc làm ảnh bìa, video xu hướng.",
-        '1:1': "<b>Tỉ lệ 1:1 (Vuông):</b> Trọng tâm hội tụ mạnh mẽ ở chính giữa. Tốt nhất cho ảnh tĩnh vật, đồ ăn, và mạng xã hội Instagram."
+        'FULL': "<b>Tỉ lệ FULL:</b> Tận dụng toàn bộ cảm biến. Phù hợp chụp không gian kiến trúc.",
+        '4:3': "<b>Tỉ lệ 4:3:</b> Khung hình nhiếp ảnh kinh điển. Hoàn hảo để chụp chân dung.",
+        '16:9': "<b>Tỉ lệ 16:9:</b> Khung hình điện ảnh (Cinematic). Tuyệt để chụp phong cảnh.",
+        '1:1': "<b>Tỉ lệ 1:1 (Vuông):</b> Trọng tâm mạnh ở giữa. Tốt nhất cho đồ ăn, tĩnh vật."
     };
 
-    // Hàm gọi Mẹo chuyên gia
     function showRandomTip() {
         const randomTip = expertTips[Math.floor(Math.random() * expertTips.length)];
         document.getElementById('guidance-title').innerHTML = '<i data-lucide="lightbulb" class="w-5 h-5 text-yellow-400"></i> Tip Nhiếp Ảnh Chuyên Sâu';
         document.getElementById('guidance-text').innerHTML = randomTip;
-        lucide.createIcons();
-        showGuidance(10000); // Mẹo chuyên sâu hiện lâu hơn một chút (10s)
+        lucide.createIcons(); showGuidance(10000);
     }
 
     function toggleDepthMode() {
         isDepthMode = !isDepthMode;
         document.getElementById('depth-overlay').classList.toggle('active', isDepthMode);
         document.getElementById('depth-btn').classList.toggle('btn-active', isDepthMode);
-        
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="aperture" class="w-4 h-4 text-yellow-400"></i> Chế Độ Chân Dung';
+        document.getElementById('guidance-title').innerHTML = '<i data-lucide="aperture" class="w-4 h-4 text-yellow-400"></i> Chân Dung';
         document.getElementById('guidance-text').innerHTML = isDepthMode 
-            ? "<b>Xóa Phông (Bokeh):</b> Giữ điện thoại <b>DỌC</b>, đưa khuôn mặt vào <b>TRUNG TÂM</b> khung hình. Viền sẽ được làm mờ để tạo hiệu ứng nổi bật chủ thể." 
-            : "Đã tắt hiệu ứng chiều sâu.";
+            ? "<b>Xóa Phông:</b> Giữ điện thoại <b>DỌC</b>, đưa khuôn mặt vào <b>TRUNG TÂM</b> khung hình." : "Đã tắt hiệu ứng chiều sâu.";
+        lucide.createIcons(); showGuidance();
+    }
+
+    function toggleBeautyMode() {
+        isBeautyMode = !isBeautyMode;
+        document.getElementById('beauty-btn').classList.toggle('btn-active', isBeautyMode);
         
-        lucide.createIcons();
-        showGuidance();
+        // Live Preview Filters
+        if(isBeautyMode) {
+            videoElement.style.filter = "brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)";
+        } else {
+            videoElement.style.filter = "none";
+        }
+        
+        document.getElementById('guidance-title').innerHTML = '<i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i> Làm Đẹp Tự Nhiên';
+        document.getElementById('guidance-text').innerHTML = isBeautyMode 
+            ? "<b>Sáng & Mịn Da:</b> Tự động nâng tone, làm mờ khuyết điểm và tạo sắc hồng tự nhiên." 
+            : "Đã tắt chế độ làm đẹp.";
+        lucide.createIcons(); showGuidance();
+    }
+
+    function cycleGrid() {
+        currentGrid = (currentGrid + 1) % 3;
+        document.getElementById('grid-phi').classList.toggle('active', currentGrid === 1);
+        document.getElementById('grid-spiral').classList.toggle('active', currentGrid === 2);
+        document.getElementById('guidance-title').innerHTML = '<i data-lucide="grid" class="w-4 h-4 text-yellow-400"></i> Mẹo Bố Cục';
+        document.getElementById('guidance-text').innerHTML = gridTips[currentGrid];
+        lucide.createIcons(); showGuidance();
+    }
+
+    function cycleRatio() {
+        currentRatioIndex = (currentRatioIndex + 1) % ratios.length;
+        document.getElementById('ratio-btn').innerText = ratios[currentRatioIndex].name;
+        updateViewFinder();
+        document.getElementById('guidance-title').innerHTML = '<i data-lucide="crop" class="w-4 h-4 text-yellow-400"></i> Mẹo Tỉ Lệ Hình';
+        document.getElementById('guidance-text').innerHTML = ratioTips[ratios[currentRatioIndex].name];
+        lucide.createIcons(); showGuidance();
+    }
+
+    function showGuidance(duration = 6000) {
+        const panel = document.getElementById('guidance-panel');
+        guidanceVisible = true;
+        panel.style.opacity = "1"; panel.style.pointerEvents = "auto";
+        if (guidanceTimeout) clearTimeout(guidanceTimeout);
+        guidanceTimeout = setTimeout(() => { guidanceVisible = false; panel.style.opacity = "0"; panel.style.pointerEvents = "none"; }, duration);
     }
 
     async function startCamera() {
@@ -277,24 +344,22 @@
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             document.getElementById('guidance-title').innerHTML = '<i data-lucide="shield-alert" class="w-4 h-4 text-red-500"></i> Lỗi Bảo Mật';
-            document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Trình duyệt chặn Camera. Bạn hãy đảm bảo đang dùng đường dẫn có chứa HTTPS hoặc test trên Localhost nhé.</span>";
-            showGuidance(15000);
-            return;
+            document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Trình duyệt chặn Camera. Bạn hãy đảm bảo đang dùng HTTPS.</span>";
+            showGuidance(15000); return;
         }
 
         const highResConstraints = { video: { facingMode: currentFacingMode, width: { ideal: 4096 }, height: { ideal: 2160 } }, audio: false };
         const basicConstraints = { video: { facingMode: currentFacingMode }, audio: false };
         const minimalConstraints = { video: true, audio: false };
 
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(highResConstraints);
-        } catch (err) {
+        try { stream = await navigator.mediaDevices.getUserMedia(highResConstraints); } 
+        catch (err) {
             try { stream = await navigator.mediaDevices.getUserMedia(basicConstraints); } 
             catch (fallbackErr) {
                 try { stream = await navigator.mediaDevices.getUserMedia(minimalConstraints); } 
                 catch (finalErr) {
                     document.getElementById('guidance-title').innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i> Lỗi Camera';
-                    document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Không thể truy cập. Hãy cấp quyền Camera cho trang web.</span>";
+                    document.getElementById('guidance-text').innerHTML = "<span class='text-red-400'>Không thể truy cập Camera.</span>";
                     showGuidance(); return;
                 }
             }
@@ -302,78 +367,33 @@
 
         videoElement.srcObject = stream;
         videoElement.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-        videoElement.play().catch(e => console.error("Lỗi play video:", e));
+        videoElement.play().catch(e => console.error(e));
         videoElement.onloadedmetadata = () => { updateViewFinder(); };
     }
 
-    function switchCamera() {
-        currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-        startCamera();
-    }
-
-    function cycleGrid() {
-        currentGrid = (currentGrid + 1) % 3;
-        document.getElementById('grid-phi').classList.toggle('active', currentGrid === 1);
-        document.getElementById('grid-spiral').classList.toggle('active', currentGrid === 2);
-        
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="grid" class="w-4 h-4 text-yellow-400"></i> Mẹo Bố Cục Lưới';
-        document.getElementById('guidance-text').innerHTML = gridTips[currentGrid];
-        lucide.createIcons(); showGuidance();
-    }
-
-    function cycleRatio() {
-        currentRatioIndex = (currentRatioIndex + 1) % ratios.length;
-        const currentRatioName = ratios[currentRatioIndex].name;
-        document.getElementById('ratio-btn').innerText = currentRatioName;
-        updateViewFinder();
-
-        document.getElementById('guidance-title').innerHTML = '<i data-lucide="crop" class="w-4 h-4 text-yellow-400"></i> Mẹo Tỉ Lệ Hình';
-        document.getElementById('guidance-text').innerHTML = ratioTips[currentRatioName];
-        lucide.createIcons(); showGuidance();
-    }
-
-    function showGuidance(duration = 6000) {
-        const panel = document.getElementById('guidance-panel');
-        guidanceVisible = true;
-        panel.style.opacity = "1";
-        panel.style.pointerEvents = "auto";
-
-        if (guidanceTimeout) clearTimeout(guidanceTimeout);
-        guidanceTimeout = setTimeout(() => {
-            guidanceVisible = false;
-            panel.style.opacity = "0";
-            panel.style.pointerEvents = "none";
-        }, duration);
-    }
+    function switchCamera() { currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment'; startCamera(); }
 
     function updateViewFinder() {
         const ratioObj = ratios[currentRatioIndex];
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
+        const winW = window.innerWidth; const winH = window.innerHeight;
         const isPortrait = winH > winW; 
-
         let targetW, targetH;
 
-        if (ratioObj.value === 'full') {
-            targetW = winW; targetH = winH;
-        } else {
+        if (ratioObj.value === 'full') { targetW = winW; targetH = winH; } 
+        else {
             let ratio = ratioObj.value;
             if (isPortrait && ratio !== 1) { ratio = 1 / ratio; }
-
             targetW = winW; targetH = winW / ratio;
             if (targetH > winH) { targetH = winH; targetW = winH * ratio; }
         }
-
-        viewFinder.style.width = `${targetW}px`;
-        viewFinder.style.height = `${targetH}px`;
+        viewFinder.style.width = `${targetW}px`; viewFinder.style.height = `${targetH}px`;
     }
 
     window.addEventListener('resize', updateViewFinder);
 
     function takePhoto() {
         const flash = document.getElementById('flash-overlay');
-        flash.style.animation = 'none'; flash.offsetHeight; 
-        flash.style.animation = 'flashAnim 0.5s forwards';
+        flash.style.animation = 'none'; flash.offsetHeight; flash.style.animation = 'flashAnim 0.5s forwards';
 
         if (!videoElement.videoWidth) return;
 
@@ -381,44 +401,59 @@
         const vfW = viewFinder.offsetWidth, vfH = viewFinder.offsetHeight, vfRatio = vfW / vfH;
 
         let cropW, cropH, startX, startY;
-        if (vidRatio > vfRatio) {
-            cropH = vidH; cropW = vidH * vfRatio;
-            startX = (vidW - cropW) / 2; startY = 0;
-        } else {
-            cropW = vidW; cropH = vidW / vfRatio;
-            startX = 0; startY = (vidH - cropH) / 2;
-        }
+        if (vidRatio > vfRatio) { cropH = vidH; cropW = vidH * vfRatio; startX = (vidW - cropW) / 2; startY = 0; } 
+        else { cropW = vidW; cropH = vidW / vfRatio; startX = 0; startY = (vidH - cropH) / 2; }
 
         canvasElement.width = cropW; canvasElement.height = cropH;
         const ctx = canvasElement.getContext('2d');
-        
         if (currentFacingMode === 'user') { ctx.translate(cropW, 0); ctx.scale(-1, 1); }
         
+        // 1. Áp dụng bộ lọc màu da nếu bật Beauty Mode
+        if (isBeautyMode) {
+            ctx.filter = 'brightness(1.1) contrast(1.05) saturate(1.1) sepia(0.05)';
+        } else {
+            ctx.filter = 'none';
+        }
         ctx.drawImage(videoElement, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+        ctx.filter = 'none';
 
-        if (isDepthMode) {
-            const offCanvas = document.createElement('canvas');
-            offCanvas.width = cropW; offCanvas.height = cropH;
-            const offCtx = offCanvas.getContext('2d');
+        // 2. Thuật toán làm mịn da (Bloom Filter)
+        if (isBeautyMode) {
+            const beautyCanvas = document.createElement('canvas'); 
+            beautyCanvas.width = cropW; beautyCanvas.height = cropH;
+            const bCtx = beautyCanvas.getContext('2d');
             
+            const blurAmount = Math.max(cropW, cropH) * 0.005; 
+            bCtx.filter = `blur(${blurAmount}px)`;
+            bCtx.drawImage(canvasElement, 0, 0);
+            
+            ctx.globalAlpha = 0.35; 
+            ctx.globalCompositeOperation = 'screen';
+            ctx.drawImage(beautyCanvas, 0, 0);
+            
+            ctx.globalAlpha = 1.0;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // 3. Xử lý Chiều Sâu (Xóa Phông)
+        if (isDepthMode) {
+            const offCanvas = document.createElement('canvas'); offCanvas.width = cropW; offCanvas.height = cropH;
+            const offCtx = offCanvas.getContext('2d');
             const blurAmount = Math.max(cropW, cropH) * 0.015; 
             offCtx.filter = `blur(${blurAmount}px)`;
             offCtx.drawImage(videoElement, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
             offCtx.filter = 'none';
-
             offCtx.globalCompositeOperation = 'destination-out';
             const minDim = Math.min(cropW, cropH);
             const grad = offCtx.createRadialGradient(cropW/2, cropH/2, minDim * 0.25, cropW/2, cropH/2, minDim * 0.75);
-            grad.addColorStop(0, 'rgba(0,0,0,1)'); 
-            grad.addColorStop(1, 'rgba(0,0,0,0)'); 
-            
-            offCtx.fillStyle = grad;
-            offCtx.fillRect(0, 0, cropW, cropH);
-
+            grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)'); 
+            offCtx.fillStyle = grad; offCtx.fillRect(0, 0, cropW, cropH);
             ctx.drawImage(offCanvas, 0, 0);
         }
 
+        // Lưu bản Preview và Blob
         capturedDataUrl = canvasElement.toDataURL('image/jpeg', 0.95);
+        canvasElement.toBlob((blob) => { capturedBlob = blob; }, 'image/jpeg', 0.95);
 
         document.getElementById('last-photo-placeholder').style.display = 'none';
         document.getElementById('last-photo-preview').style.display = 'block';
@@ -429,22 +464,54 @@
         if (!capturedDataUrl) return;
         document.getElementById('preview-image').src = capturedDataUrl;
         document.getElementById('preview-modal').style.display = 'flex';
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS && navigator.share) {
+            document.getElementById('ios-save-hint').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('ios-save-hint').classList.add('hidden'); }, 4000);
+        }
     }
 
     function closeModal() { document.getElementById('preview-modal').style.display = 'none'; }
 
-    function savePhoto() {
-        if (!capturedDataUrl) return;
-        const link = document.createElement('a');
-        link.download = `GoldenRatio_${ratios[currentRatioIndex].name.replace(':','x')}_${new Date().getTime()}.jpg`;
-        link.href = capturedDataUrl; link.click(); closeModal();
+    async function savePhotoToAlbum() {
+        if (!capturedBlob && !capturedDataUrl) return;
+        
+        const overlay = document.getElementById('saving-overlay');
+        overlay.style.display = 'flex';
+        const fileName = `GoldenRatio_${ratios[currentRatioIndex].name.replace(':','x')}_${new Date().getTime()}.jpg`;
+
+        try {
+            // Dùng Web Share API để lưu Native vào Album trên iOS/Android
+            if (navigator.share && navigator.canShare) {
+                const file = new File([capturedBlob], fileName, { type: 'image/jpeg' });
+                
+                if (navigator.canShare({ files: [file] })) {
+                    overlay.style.display = 'none'; 
+                    await navigator.share({ title: 'Golden Camera Pro Photo', files: [file] });
+                    closeModal(); 
+                    return;
+                }
+            }
+
+            // Fallback tải xuống cho PC/Trình duyệt không hỗ trợ Share
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = capturedDataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            overlay.style.display = 'none';
+            closeModal();
+            
+        } catch (error) {
+            console.log('Share canceled or failed:', error);
+            overlay.style.display = 'none';
+        }
     }
 
     window.onload = () => {
-        updateViewFinder();
-        startCamera();
-        // Hiện mẹo khởi động 8 giây
-        setTimeout(() => { showRandomTip(); }, 3000); 
+        updateViewFinder(); startCamera(); setTimeout(() => { showRandomTip(); }, 3000); 
     };
 </script>
 </body>
